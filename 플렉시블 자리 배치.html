@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>플렉시블 자리 배치</title>
+    <style>
+        @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --text-main: #334155;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px 15px 80px;
+            color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        h2 {
+            margin: 10px 0 20px 0;
+            font-size: 22px;
+            font-weight: 800;
+            text-align: center;
+            color: #1e293b;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* 공통 카드 스타일 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid #fff;
+        }
+
+        /* 1. 상단 컨트롤 */
+        .status-text {
+            text-align: center;
+            font-size: 15px; font-weight: 500; color: #64748b;
+            margin-bottom: 15px;
+            background: #f8fafc; padding: 10px; border-radius: 12px;
+        }
+        
+        .btn-group { display: flex; gap: 10px; }
+        .btn {
+            border: none; border-radius: 12px;
+            padding: 15px 0; font-size: 16px; font-weight: 700;
+            cursor: pointer; flex: 1; 
+            display: flex; justify-content: center; align-items: center;
+            transition: 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn:active { transform: scale(0.97); }
+        
+        .btn-mix { background: var(--primary); color: white; flex: 2; }
+        .btn-reset { background: #cbd5e1; color: #475569; }
+
+        /* 2. TV 및 좌석 영역 */
+        .tv-screen {
+            background: #334155; color: white;
+            padding: 8px 0; border-radius: 6px;
+            margin: 0 auto 25px auto; width: 70%;
+            text-align: center; font-weight: bold; letter-spacing: 1px; font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .seat-wrapper {
+            display: flex; justify-content: center; gap: 15px;
+        }
+        .col-grid { display: grid; gap: 8px; }
+        .left-group { grid-template-columns: 1fr 1fr; }
+        .right-group { grid-template-columns: 1fr 1fr 1fr; }
+
+        .seat {
+            width: 100%; aspect-ratio: 1/1.2; min-width: 42px;
+            background: #fff; border: 1px solid #cbd5e1; border-radius: 10px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .seat-num { position: absolute; top: 3px; left: 5px; font-size: 10px; color: #94a3b8; }
+        .seat-name { 
+            font-size: 14px; font-weight: 800; color: #334155; 
+            text-align: center; line-height: 1.1; word-break: keep-all; padding: 0 2px;
+        }
+
+        /* 고정석 & 배정된석 */
+        .seat.fixed { background: #f1f5f9; border-color: #e2e8f0; }
+        .seat.fixed .seat-name { font-size: 12px; color: #94a3b8; }
+        .seat.assigned { 
+            background: #eff6ff; border-color: #60a5fa; 
+            box-shadow: 0 0 0 2px #bfdbfe; z-index: 10;
+        }
+        .seat.assigned .seat-name { color: #2563eb; }
+
+        /* 3. 출석부 */
+        .roster-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .roster-title { font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+        .count-badge { font-size: 13px; color: var(--primary); background: #eff6ff; padding: 2px 8px; border-radius: 10px; }
+        
+        .btn-edit {
+            background: #fff; border: 1px solid #cbd5e1; color: #475569;
+            padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: bold;
+        }
+
+        .roster-list {
+            max-height: 350px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        
+        .roster-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px; border: 1px solid #f1f5f9; border-radius: 12px;
+            background: #fff; transition: 0.2s;
+        }
+        .roster-item.absent { background: #fef2f2; border-color: #fee2e2; }
+
+        /* 토글 스위치 */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 12px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .name-text { flex: 1; font-weight: 600; font-size: 15px; color: #334155; }
+        .reason-select {
+            padding: 4px; border: 1px solid #fecaca; border-radius: 6px;
+            font-size: 12px; color: #b91c1c; background: #fff; outline: none;
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: white; width: 85%; max-width: 320px;
+            padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        .modal-box h3 { margin: 0; text-align: center; font-size: 18px; }
+        textarea {
+            width: 100%; height: 150px; padding: 12px;
+            border: 1px solid #cbd5e1; border-radius: 12px;
+            font-size: 15px; resize: none; outline: none;
+            font-family: inherit;
+        }
+        .modal-btns { display: flex; gap: 10px; }
+
+        /* 비상 초기화 버튼 */
+        .hard-reset {
+            margin-top: 30px; font-size: 12px; color: #cbd5e1; 
+            text-decoration: underline; background: none; border: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>플렉시블 자리 배치</h2>
+
+    <div class="container">
+        <div class="card">
+            <div class="status-text" id="statusMsg">오늘도 파이팅! ☀️</div>
+            <div class="btn-group">
+                <button id="btnMix" class="btn btn-mix">🎲 자리 섞기</button>
+                <button id="btnReset" class="btn btn-reset">🔄 초기화</button>
+            </div>
+        </div>
+
+        <div class="card" style="padding-top: 30px;">
+            <div class="tv-screen">TV</div>
+            
+            <div class="seat-wrapper">
+                <div class="col-grid left-group">
+                    <div class="seat" id="s1"><span class="seat-num">1</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s2"><span class="seat-num">2</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s6"><span class="seat-num">6</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s7"><span class="seat-num">7</span><span class="seat-name"></span></div>
+                    <div class="seat fixed"><span class="seat-name">카페팀</span></div>
+                    <div class="seat fixed"><span class="seat-name">카페팀</span></div>
+                </div>
+                <div class="col-grid right-group">
+                    <div class="seat" id="s3"><span class="seat-num">3</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s4"><span class="seat-num">4</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s5"><span class="seat-num">5</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s8"><span class="seat-num">8</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s9"><span class="seat-num">9</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s10"><span class="seat-num">10</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s11"><span class="seat-num">11</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s12"><span class="seat-num">12</span><span class="seat-name"></span></div>
+                    <div class="seat" id="s13"><span class="seat-num">13</span><span class="seat-name"></span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="roster-header">
+                <div class="roster-title">
+                    📋 출석 체크 <span id="countBadge" class="count-badge">0/0</span>
+                </div>
+                <button id="btnEdit" class="btn-edit">✏️ 명단 수정</button>
+            </div>
+            <div id="rosterList" class="roster-list">
+                </div>
+        </div>
+
+        <button id="btnHardReset" class="hard-reset">⚠️ 앱이 작동하지 않나요? (초기화)</button>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>명단 수정</h3>
+            <textarea id="editInput" placeholder="이름을 줄바꿈(엔터)으로 입력하세요"></textarea>
+            <div class="modal-btns">
+                <button id="btnCancel" class="btn btn-reset">취소</button>
+                <button id="btnSave" class="btn btn-mix">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * [아이폰 16 오류 해결을 위한 안전 모드 스크립트]
+         * 1. 전역 변수 충돌 방지를 위해 즉시 실행 함수 사용 안 함
+         * 2. localStorage 접근 실패 시 임시 메모리 사용 (앱 멈춤 방지)
+         * 3. DOMContentLoaded 이벤트를 사용하여 확실한 로딩 보장
+         */
+
+        // --- 1. 기본 설정 및 데이터 ---
+        const DEFAULT_ROSTER = [
+            "권호담", "김소영", "김태형", "문태일", "박솔빈", 
+            "박우성", "백요한", "여홍기", "염종헌", "이성훈", 
+            "이혜진", "임민섭", "조한미"
+        ];
+        // 1~13번 자리 ID
+        const SEAT_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+        
+        let roster = []; // 현재 명단 데이터
+
+        // --- 2. 안전한 저장소 헬퍼 (핵심) ---
+        const Storage = {
+            key: 'seat_app_final_v1', // 키 변경으로 꼬인 데이터 무시
+            get: function() {
+                try {
+                    const data = localStorage.getItem(this.key);
+                    return data ? JSON.parse(data) : null;
+                } catch (e) {
+                    console.warn("저장소 읽기 실패(보안):", e);
+                    return null;
+                }
+            },
+            set: function(data) {
+                try {
+                    localStorage.setItem(this.key, JSON.stringify(data));
+                } catch (e) {
+                    console.warn("저장소 쓰기 실패(보안):", e);
+                }
+            },
+            clear: function() {
+                try { localStorage.removeItem(this.key); } catch(e){}
+            }
+        };
+
+        // --- 3. 앱 시작 (진입점) ---
+        document.addEventListener("DOMContentLoaded", () => {
+            // 1) 데이터 로드
+            const savedData = Storage.get();
+            if (savedData && Array.isArray(savedData) && savedData.length > 0) {
+                roster = savedData;
+            } else {
+                // 데이터 없으면 기본값으로 초기화
+                roster = DEFAULT_ROSTER.sort().map(name => ({
+                    name: name,
+                    on: true, // 출석 여부
+                    note: '지각' // 불참 사유
+                }));
+            }
+
+            // 2) 화면 그리기
+            renderRoster();
+            updateStatus();
+
+            // 3) 이벤트 연결 (안전하게)
+            bindEvents();
+        });
+
+        // --- 4. 화면 렌더링 함수들 ---
+        function renderRoster() {
+            const listEl = document.getElementById('rosterList');
+            const countEl = document.getElementById('countBadge');
+            
+            listEl.innerHTML = '';
+            let onCount = 0;
+
+            roster.forEach((p, idx) => {
+                if (p.on) onCount++;
+                
+                const item = document.createElement('div');
+                item.className = `roster-item ${p.on ? '' : 'absent'}`;
+                
+                // HTML 구조 생성
+                item.innerHTML = `
+                    <label class="switch">
+                        <input type="checkbox" ${p.on ? 'checked' : ''} data-idx="${idx}">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="name-text" style="opacity:${p.on ? 1 : 0.5}">${p.name}</span>
+                    <select class="reason-select" style="display:${p.on ? 'none' : 'block'}" data-idx="${idx}">
+                        <option value="지각" ${p.note==='지각'?'selected':''}>지각</option>
+                        <option value="병가" ${p.note==='병가'?'selected':''}>병가</option>
+                        <option value="월차" ${p.note==='월차'?'selected':''}>월차</option>
+                        <option value="반차" ${p.note==='반차'?'selected':''}>반차</option>
+                        <option value="기타" ${p.note==='기타'?'selected':''}>기타</option>
+                    </select>
+                `;
+                listEl.appendChild(item);
+            });
+
+            countEl.innerText = `${onCount}/${roster.length}`;
+            Storage.set(roster); // 상태 저장
+        }
+
+        function updateStatus() {
+            const absents = roster.filter(p => !p.on);
+            const msgEl = document.getElementById('statusMsg');
+            
+            if (absents.length === 0) {
+                msgEl.innerHTML = `✅ <b>전원 출석 완료!</b>`;
+            } else {
+                // 불참자 목록 텍스트 생성
+                const text = absents.map(p => 
+                    `<span style="background:#fee2e2; color:#b91c1c; padding:2px 5px; border-radius:4px; font-size:12px; margin-right:4px;">${p.note}</span>${p.name}`
+                ).join('&nbsp;&nbsp;');
+                msgEl.innerHTML = `📢 <b>불참:</b> ${text}`;
+            }
+        }
+
+        // --- 5. 이벤트 핸들러 (동적 연결) ---
+        function bindEvents() {
+            // 메인 버튼
+            document.getElementById('btnMix').addEventListener('click', mixSeats);
+            document.getElementById('btnReset').addEventListener('click', resetSeats);
+            document.getElementById('btnHardReset').addEventListener('click', () => {
+                if(confirm('데이터를 초기화하시겠습니까?')) {
+                    Storage.clear();
+                    location.reload();
+                }
+            });
+
+            // 명단 리스트 내부 이벤트 (이벤트 위임)
+            const listEl = document.getElementById('rosterList');
+            listEl.addEventListener('change', (e) => {
+                const target = e.target;
+                const idx = target.getAttribute('data-idx');
+                
+                if (idx !== null) {
+                    if (target.type === 'checkbox') {
+                        roster[idx].on = target.checked;
+                    } else if (target.tagName === 'SELECT') {
+                        roster[idx].note = target.value;
+                    }
+                    renderRoster(); // 다시 그리기 (상태 반영)
+                    updateStatus();
+                }
+            });
+
+            // 모달 관련
+            const modal = document.getElementById('editModal');
+            const input = document.getElementById('editInput');
+
+            document.getElementById('btnEdit').addEventListener('click', () => {
+                input.value = roster.map(p => p.name).join('\n');
+                modal.style.display = 'flex';
+            });
+
+            document.getElementById('btnCancel').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+
+            document.getElementById('btnSave').addEventListener('click', () => {
+                const txt = input.value;
+                const newNames = txt.split('\n').map(n => n.trim()).filter(n => n !== "");
+                
+                if (newNames.length === 0) return alert('명단을 입력해주세요.');
+
+                newNames.sort(); // 가나다 정렬
+
+                // 기존 정보 병합 로직
+                const newRoster = newNames.map(name => {
+                    const exist = roster.find(p => p.name === name);
+                    return exist ? exist : { name: name, on: true, note: '지각' };
+                });
+
+                roster = newRoster;
+                renderRoster();
+                updateStatus();
+                modal.style.display = 'none';
+            });
+        }
+
+        // --- 6. 자리 배치 로직 ---
+        function mixSeats() {
+            const attendees = roster.filter(p => p.on).map(p => p.name);
+            
+            if (attendees.length === 0) return alert('출석한 사람이 없습니다.');
+            if (attendees.length > SEAT_IDS.length) return alert(`자리가 부족합니다! (${attendees.length}명 / 13자리)`);
+
+            resetSeats(); // 기존 자리 지우기
+
+            // 랜덤 섞기 (Fisher-Yates)
+            let pool = [...attendees];
+            // 남는 자리는 빈칸으로 채움
+            while (pool.length < SEAT_IDS.length) {
+                pool.push(null);
+            }
+
+            // 섞기
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            // 배치 애니메이션
+            let delay = 0;
+            SEAT_IDS.forEach((id, idx) => {
+                const name = pool[idx];
+                if (name) {
+                    setTimeout(() => {
+                        const el = document.getElementById('s' + id);
+                        if (el) {
+                            el.querySelector('.seat-name').innerText = name;
+                            el.classList.add('assigned');
+                        }
+                    }, delay);
+                    delay += 50;
+                }
+            });
+        }
+
+        function resetSeats() {
+            SEAT_IDS.forEach(id => {
+                const el = document.getElementById('s' + id);
+                if (el) {
+                    el.classList.remove('assigned');
+                    el.querySelector('.seat-name').innerText = "";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
