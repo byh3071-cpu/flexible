@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>플렉시블 자리 배치</title>
+    
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <style>
+        @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+        :root {
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --primary-dark: #2563eb;
+            --text-main: #334155;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --danger: #ef4444;
+            --kakao: #FEE500;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px 15px 80px;
+            color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh;
+        }
+
+        h2 {
+            margin: 10px 0 20px 0;
+            font-size: 22px;
+            font-weight: 800;
+            text-align: center;
+            color: #1e293b;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* 공통 카드 스타일 */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid #fff;
+        }
+
+        /* 1. 상단 컨트롤 */
+        .status-text {
+            text-align: center;
+            font-size: 15px; font-weight: 500; color: #64748b;
+            margin-bottom: 15px;
+            background: #f8fafc; padding: 10px; border-radius: 12px;
+        }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn {
+            border: none; border-radius: 12px;
+            padding: 15px 0; font-size: 16px; font-weight: 700;
+            cursor: pointer; flex: 1; 
+            display: flex; justify-content: center; align-items: center;
+            transition: 0.1s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn:active { transform: scale(0.97); }
+        
+        .btn-mix { background: var(--primary); color: white; flex: 2; }
+        .btn-reset { background: #cbd5e1; color: #475569; }
+        
+        /* 공유 버튼 스타일 */
+        .btn-share {
+            background: var(--kakao); color: #3c1e1e;
+            width: 100%; margin-top: 5px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        /* 2. TV 및 좌석 영역 */
+        .tv-screen {
+            background: #334155; color: white;
+            padding: 8px 0; border-radius: 6px;
+            margin: 0 auto 25px auto; width: 70%;
+            text-align: center; font-weight: bold; letter-spacing: 1px; font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .seat-wrapper {
+            display: flex; justify-content: center; gap: 15px;
+        }
+        .col-grid { display: grid; gap: 8px; }
+        .left-group { grid-template-columns: 1fr 1fr; }
+        .right-group { grid-template-columns: 1fr 1fr 1fr; }
+
+        .seat {
+            width: 100%; aspect-ratio: 1/1.2; min-width: 42px;
+            background: #fff; border: 1px solid #cbd5e1; border-radius: 10px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            transition: 0.2s;
+            cursor: pointer;
+        }
+        .seat-num { position: absolute; top: 3px; left: 5px; font-size: 10px; color: #94a3b8; }
+        .seat-name { 
+            font-size: 14px; font-weight: 800; color: #334155; 
+            text-align: center; line-height: 1.1; word-break: keep-all; padding: 0 2px;
+        }
+
+        .seat.fixed { background: #f1f5f9; border-color: #e2e8f0; cursor: default; }
+        .seat.fixed .seat-name { font-size: 12px; color: #94a3b8; }
+
+        .seat.assigned { 
+            background: #eff6ff; border-color: #60a5fa; 
+            box-shadow: 0 0 0 2px #bfdbfe; z-index: 10;
+        }
+        .seat.assigned .seat-name { color: #2563eb; }
+
+        .seat.disabled {
+            background: #f1f5f9; border-color: #e2e8f0; opacity: 0.7;
+        }
+        .seat.disabled::after {
+            content: "❌"; font-size: 18px; position: absolute;
+        }
+        .seat.disabled .seat-num { opacity: 0.5; }
+        .seat.disabled .seat-name { display: none; }
+
+        /* 3. 출석부 */
+        .roster-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+        .roster-title { font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 6px; }
+        .count-badge { font-size: 13px; color: var(--primary); background: #eff6ff; padding: 2px 8px; border-radius: 10px; }
+        
+        .btn-edit {
+            background: #fff; border: 1px solid #cbd5e1; color: #475569;
+            padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: bold;
+        }
+
+        .roster-list {
+            max-height: 350px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        
+        .roster-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px; border: 1px solid #f1f5f9; border-radius: 12px;
+            background: #fff; transition: 0.2s;
+        }
+        .roster-item.absent { background: #fef2f2; border-color: #fee2e2; }
+
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 12px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        .name-text { flex: 1; font-weight: 600; font-size: 15px; color: #334155; }
+        .reason-select {
+            padding: 4px; border: 1px solid #fecaca; border-radius: 6px;
+            font-size: 12px; color: #b91c1c; background: #fff; outline: none;
+        }
+
+        /* 모달 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 999;
+            display: none; justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: white; width: 85%; max-width: 320px;
+            padding: 25px; border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex; flex-direction: column; gap: 15px;
+        }
+        .modal-box h3 { margin: 0; text-align: center; font-size: 18px; }
+        textarea {
+            width: 100%; height: 150px; padding: 12px;
+            border: 1px solid #cbd5e1; border-radius: 12px;
+            font-size: 15px; resize: none; outline: none;
+            font-family: inherit;
+        }
+        .modal-btns { display: flex; gap: 10px; }
+
+        .hard-reset {
+            margin-top: 30px; font-size: 12px; color: #cbd5e1; 
+            text-decoration: underline; background: none; border: none;
+        }
+        .tip-text {
+            font-size: 12px; color: #64748b; text-align: center; margin-top: -15px;
+        }
+
+        /* 캡처용 스타일 (캡처될 때만 적용될 스타일 정의 가능) */
+        #captureArea {
+            background-color: var(--bg-color); /* 배경색 유지 */
+            padding: 10px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>플렉시블 자리 배치</h2>
+
+    <div class="container">
+        
+        <div id="captureArea">
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="status-text" id="statusMsg">오늘도 파이팅! ☀️</div>
+                </div>
+
+            <div class="card" style="padding-top: 30px;">
+                <div class="tv-screen">TV</div>
+                
+                <div class="seat-wrapper">
+                    <div class="col-grid left-group">
+                        <div class="seat" id="s1"><span class="seat-num">1</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s2"><span class="seat-num">2</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s6"><span class="seat-num">6</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s7"><span class="seat-num">7</span><span class="seat-name"></span></div>
+                        <div class="seat fixed"><span class="seat-name">카페팀</span></div>
+                        <div class="seat fixed"><span class="seat-name">카페팀</span></div>
+                    </div>
+                    <div class="col-grid right-group">
+                        <div class="seat" id="s3"><span class="seat-num">3</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s4"><span class="seat-num">4</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s5"><span class="seat-num">5</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s8"><span class="seat-num">8</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s9"><span class="seat-num">9</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s10"><span class="seat-num">10</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s11"><span class="seat-num">11</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s12"><span class="seat-num">12</span><span class="seat-name"></span></div>
+                        <div class="seat" id="s13"><span class="seat-num">13</span><span class="seat-name"></span></div>
+                    </div>
+                </div>
+                <p class="tip-text" style="margin-top: 20px;">💡 자리를 터치하면 <b>[사용 안 함]</b>으로 잠금</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="btn-group">
+                <button id="btnMix" class="btn btn-mix">🎲 자리 섞기</button>
+                <button id="btnReset" class="btn btn-reset">🔄 초기화</button>
+            </div>
+            <button id="btnShare" class="btn btn-share">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                </svg>
+                카톡으로 결과 공유하기
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="roster-header">
+                <div class="roster-title">
+                    📋 출석 체크 <span id="countBadge" class="count-badge">0/0</span>
+                </div>
+                <button id="btnEdit" class="btn-edit">✏️ 명단 수정</button>
+            </div>
+            <div id="rosterList" class="roster-list">
+                </div>
+        </div>
+
+        <button id="btnHardReset" class="hard-reset">⚠️ 앱이 작동하지 않나요? (초기화)</button>
+    </div>
+
+    <div id="editModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>명단 수정</h3>
+            <textarea id="editInput" placeholder="이름을 줄바꿈(엔터)으로 입력하세요"></textarea>
+            <div class="modal-btns">
+                <button id="btnCancel" class="btn btn-reset">취소</button>
+                <button id="btnSave" class="btn btn-mix">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DEFAULT_ROSTER = [
+            "권호담", "김소영", "김태형", "문태일", "박솔빈", 
+            "박우성", "백요한", "여홍기", "염종헌", "이성훈", 
+            "이혜진", "임민섭", "조한미"
+        ];
+        const SEAT_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+        
+        let roster = [];
+        let disabledSeats = [];
+
+        const Storage = {
+            keyRoster: 'seat_app_roster_v2', 
+            keySeats: 'seat_app_disabled_v2',
+            get: function(key) {
+                try {
+                    const data = localStorage.getItem(key);
+                    return data ? JSON.parse(data) : null;
+                } catch (e) { return null; }
+            },
+            set: function(key, data) {
+                try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
+            },
+            clear: function() {
+                try { localStorage.clear(); } catch(e){}
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedRoster = Storage.get(Storage.keyRoster);
+            if (savedRoster && Array.isArray(savedRoster) && savedRoster.length > 0) {
+                roster = savedRoster;
+            } else {
+                roster = DEFAULT_ROSTER.sort().map(name => ({
+                    name: name, on: true, note: '지각'
+                }));
+            }
+
+            const savedSeats = Storage.get(Storage.keySeats);
+            if(savedSeats && Array.isArray(savedSeats)) {
+                disabledSeats = savedSeats;
+            }
+
+            renderRoster();
+            updateStatus();
+            applySeatLocks();
+            bindEvents();
+        });
+
+        function renderRoster() {
+            const listEl = document.getElementById('rosterList');
+            const countEl = document.getElementById('countBadge');
+            
+            listEl.innerHTML = '';
+            let onCount = 0;
+
+            roster.forEach((p, idx) => {
+                if (p.on) onCount++;
+                const item = document.createElement('div');
+                item.className = `roster-item ${p.on ? '' : 'absent'}`;
+                item.innerHTML = `
+                    <label class="switch">
+                        <input type="checkbox" ${p.on ? 'checked' : ''} data-idx="${idx}">
+                        <span class="slider"></span>
+                    </label>
+                    <span class="name-text" style="opacity:${p.on ? 1 : 0.5}">${p.name}</span>
+                    <select class="reason-select" style="display:${p.on ? 'none' : 'block'}" data-idx="${idx}">
+                        <option value="지각" ${p.note==='지각'?'selected':''}>지각</option>
+                        <option value="병가" ${p.note==='병가'?'selected':''}>병가</option>
+                        <option value="월차" ${p.note==='월차'?'selected':''}>월차</option>
+                        <option value="반차" ${p.note==='반차'?'selected':''}>반차</option>
+                        <option value="기타" ${p.note==='기타'?'selected':''}>기타</option>
+                    </select>
+                `;
+                listEl.appendChild(item);
+            });
+
+            countEl.innerText = `${onCount}/${roster.length}`;
+            Storage.set(Storage.keyRoster, roster);
+        }
+
+        function updateStatus() {
+            const absents = roster.filter(p => !p.on);
+            const msgEl = document.getElementById('statusMsg');
+            
+            if (absents.length === 0) {
+                msgEl.innerHTML = `✅ <b>전원 출석 완료!</b>`;
+            } else {
+                const text = absents.map(p => 
+                    `<span style="background:#fee2e2; color:#b91c1c; padding:2px 5px; border-radius:4px; font-size:12px; margin-right:4px;">${p.note}</span>${p.name}`
+                ).join('&nbsp;&nbsp;');
+                msgEl.innerHTML = `📢 <b>불참:</b> ${text}`;
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('btnMix').addEventListener('click', mixSeats);
+            document.getElementById('btnReset').addEventListener('click', resetSeats);
+            document.getElementById('btnHardReset').addEventListener('click', () => {
+                if(confirm('데이터를 초기화하시겠습니까?')) {
+                    Storage.clear();
+                    location.reload();
+                }
+            });
+
+            SEAT_IDS.forEach(id => {
+                const seatEl = document.getElementById('s' + id);
+                if(seatEl) {
+                    seatEl.addEventListener('click', () => toggleSeatLock(id));
+                }
+            });
+
+            const listEl = document.getElementById('rosterList');
+            listEl.addEventListener('change', (e) => {
+                const target = e.target;
+                const idx = target.getAttribute('data-idx');
+                if (idx !== null) {
+                    if (target.type === 'checkbox') {
+                        roster[idx].on = target.checked;
+                    } else if (target.tagName === 'SELECT') {
+                        roster[idx].note = target.value;
+                    }
+                    renderRoster();
+                    updateStatus();
+                }
+            });
+
+            const modal = document.getElementById('editModal');
+            const input = document.getElementById('editInput');
+            document.getElementById('btnEdit').addEventListener('click', () => {
+                input.value = roster.map(p => p.name).join('\n');
+                modal.style.display = 'flex';
+            });
+            document.getElementById('btnCancel').addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+            document.getElementById('btnSave').addEventListener('click', () => {
+                const txt = input.value;
+                const newNames = txt.split('\n').map(n => n.trim()).filter(n => n !== "");
+                if (newNames.length === 0) return alert('명단을 입력해주세요.');
+                newNames.sort(); 
+                const newRoster = newNames.map(name => {
+                    const exist = roster.find(p => p.name === name);
+                    return exist ? exist : { name: name, on: true, note: '지각' };
+                });
+                roster = newRoster;
+                renderRoster();
+                updateStatus();
+                modal.style.display = 'none';
+            });
+
+            // --- 공유하기 버튼 이벤트 ---
+            document.getElementById('btnShare').addEventListener('click', async () => {
+                const captureTarget = document.getElementById('captureArea');
+                
+                // 캡처 중임을 사용자에게 알림 (선택사항)
+                const btn = document.getElementById('btnShare');
+                const originalText = btn.innerHTML;
+                btn.innerText = "이미지 생성 중...";
+
+                try {
+                    // 1. html2canvas로 영역 캡처
+                    const canvas = await html2canvas(captureTarget, {
+                        scale: 2, // 해상도 2배 (선명하게)
+                        backgroundColor: "#f1f5f9" // 배경색 지정
+                    });
+
+                    // 2. 캔버스를 이미지 파일(Blob)로 변환
+                    canvas.toBlob(async (blob) => {
+                        if (!blob) {
+                            alert('이미지 생성 실패');
+                            return;
+                        }
+
+                        const file = new File([blob], "seat_arrangement.png", { type: "image/png" });
+
+                        // 3. Web Share API 지원 여부 확인 및 공유
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                            try {
+                                await navigator.share({
+                                    files: [file],
+                                    title: '오늘의 자리 배치',
+                                    text: '오늘의 자리 배치 현황입니다.'
+                                });
+                            } catch (err) {
+                                if (err.name !== 'AbortError') {
+                                    console.error(err);
+                                    alert('공유 중 오류가 발생했습니다.');
+                                }
+                            }
+                        } else {
+                            // 공유 API 미지원 브라우저 (PC 등) -> 이미지 다운로드 처리
+                            const link = document.createElement('a');
+                            link.download = '자리배치.png';
+                            link.href = canvas.toDataURL();
+                            link.click();
+                            alert('이미지가 갤러리(다운로드 폴더)에 저장되었습니다. 카톡에서 사진을 전송해주세요.');
+                        }
+                        
+                        btn.innerHTML = originalText; // 버튼 텍스트 복구
+                    });
+
+                } catch (err) {
+                    console.error(err);
+                    alert('이미지 생성에 실패했습니다.');
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+
+        function toggleSeatLock(id) {
+            const idx = disabledSeats.indexOf(id);
+            if(idx > -1) {
+                disabledSeats.splice(idx, 1);
+            } else {
+                disabledSeats.push(id);
+            }
+            Storage.set(Storage.keySeats, disabledSeats);
+            applySeatLocks();
+        }
+
+        function applySeatLocks() {
+            SEAT_IDS.forEach(id => {
+                const el = document.getElementById('s' + id);
+                if(el) {
+                    if(disabledSeats.includes(id)) {
+                        el.classList.add('disabled');
+                        el.classList.remove('assigned');
+                        el.querySelector('.seat-name').innerText = "";
+                    } else {
+                        el.classList.remove('disabled');
+                    }
+                }
+            });
+        }
+
+        function mixSeats() {
+            const attendees = roster.filter(p => p.on).map(p => p.name);
+            const availableSeats = SEAT_IDS.filter(id => !disabledSeats.includes(id));
+
+            if (attendees.length === 0) return alert('출석한 사람이 없습니다.');
+            if (attendees.length > availableSeats.length) {
+                return alert(`자리가 부족합니다!\n- 출석 인원: ${attendees.length}명\n- 사용 가능 좌석: ${availableSeats.length}개\n\n❌ 표시된 자리를 눌러서 잠금을 해제해주세요.`);
+            }
+
+            resetSeatNames();
+
+            let pool = [...attendees];
+            while (pool.length < availableSeats.length) {
+                pool.push(null);
+            }
+
+            for (let i = pool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [pool[i], pool[j]] = [pool[j], pool[i]];
+            }
+
+            let delay = 0;
+            availableSeats.forEach((seatId, idx) => {
+                const name = pool[idx];
+                if (name) {
+                    setTimeout(() => {
+                        const el = document.getElementById('s' + seatId);
+                        if (el) {
+                            el.querySelector('.seat-name').innerText = name;
+                            el.classList.add('assigned');
+                        }
+                    }, delay);
+                    delay += 50;
+                }
+            });
+        }
+
+        function resetSeatNames() {
+            SEAT_IDS.forEach(id => {
+                const el = document.getElementById('s' + id);
+                if (el && !disabledSeats.includes(id)) {
+                    el.classList.remove('assigned');
+                    el.querySelector('.seat-name').innerText = "";
+                }
+            });
+        }
+
+        function resetSeats() {
+            resetSeatNames();
+        }
+    </script>
+</body>
+</html>
