@@ -63,6 +63,7 @@
             font-size: 15px; font-weight: 500; color: #64748b;
             margin-bottom: 15px;
             background: #f8fafc; padding: 10px; border-radius: 12px;
+            min-height: 42px; display: flex; align-items: center; justify-content: center;
         }
         
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
@@ -144,10 +145,19 @@
         .roster-title { font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 6px; }
         .count-badge { font-size: 13px; color: var(--primary); background: #eff6ff; padding: 2px 8px; border-radius: 10px; }
         
+        .header-controls { display: flex; align-items: center; gap: 8px; }
+
         .btn-edit {
             background: #fff; border: 1px solid #cbd5e1; color: #475569;
             padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: bold;
         }
+
+        /* 간편 모드 토글 스타일 */
+        .simple-mode-toggle {
+            display: flex; align-items: center; font-size: 12px; color: #64748b; font-weight: 600;
+            background: #f8fafc; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
+        }
+        .simple-mode-toggle input { margin-right: 5px; }
 
         .roster-list {
             max-height: 350px; overflow-y: auto;
@@ -204,9 +214,9 @@
             font-size: 12px; color: #64748b; text-align: center; margin-top: -15px;
         }
 
-        /* 캡처용 스타일 (캡처될 때만 적용될 스타일 정의 가능) */
+        /* 캡처용 스타일 */
         #captureArea {
-            background-color: var(--bg-color); /* 배경색 유지 */
+            background-color: var(--bg-color); 
             padding: 10px;
             border-radius: 10px;
         }
@@ -221,7 +231,7 @@
         <div id="captureArea">
             <div class="card" style="margin-bottom: 20px;">
                 <div class="status-text" id="statusMsg">오늘도 파이팅! ☀️</div>
-                </div>
+            </div>
 
             <div class="card" style="padding-top: 30px;">
                 <div class="tv-screen">TV</div>
@@ -266,9 +276,14 @@
         <div class="card">
             <div class="roster-header">
                 <div class="roster-title">
-                    📋 출석 체크 <span id="countBadge" class="count-badge">0/0</span>
+                    📋 출석 <span id="countBadge" class="count-badge">0/0</span>
                 </div>
-                <button id="btnEdit" class="btn-edit">✏️ 명단 수정</button>
+                <div class="header-controls">
+                    <label class="simple-mode-toggle">
+                        <input type="checkbox" id="toggleSimpleMode"> 간편 모드
+                    </label>
+                    <button id="btnEdit" class="btn-edit">✏️ 수정</button>
+                </div>
             </div>
             <div id="rosterList" class="roster-list">
                 </div>
@@ -298,10 +313,12 @@
         
         let roster = [];
         let disabledSeats = [];
+        let isSimpleMode = false; // 간편 모드 상태 (기본값: 꺼짐)
 
         const Storage = {
             keyRoster: 'seat_app_roster_v2', 
             keySeats: 'seat_app_disabled_v2',
+            keyMode: 'seat_app_simple_mode_v1', // 모드 저장 키
             get: function(key) {
                 try {
                     const data = localStorage.getItem(key);
@@ -331,6 +348,13 @@
                 disabledSeats = savedSeats;
             }
 
+            // 간편 모드 불러오기
+            const savedMode = Storage.get(Storage.keyMode);
+            if (savedMode !== null) {
+                isSimpleMode = savedMode;
+                document.getElementById('toggleSimpleMode').checked = isSimpleMode;
+            }
+
             renderRoster();
             updateStatus();
             applySeatLocks();
@@ -348,13 +372,17 @@
                 if (p.on) onCount++;
                 const item = document.createElement('div');
                 item.className = `roster-item ${p.on ? '' : 'absent'}`;
+                
+                // 간편 모드일 경우 select 박스 숨김 처리
+                const selectDisplay = isSimpleMode ? 'none' : (p.on ? 'none' : 'block');
+
                 item.innerHTML = `
                     <label class="switch">
                         <input type="checkbox" ${p.on ? 'checked' : ''} data-idx="${idx}">
                         <span class="slider"></span>
                     </label>
                     <span class="name-text" style="opacity:${p.on ? 1 : 0.5}">${p.name}</span>
-                    <select class="reason-select" style="display:${p.on ? 'none' : 'block'}" data-idx="${idx}">
+                    <select class="reason-select" style="display:${selectDisplay}" data-idx="${idx}">
                         <option value="지각" ${p.note==='지각'?'selected':''}>지각</option>
                         <option value="병가" ${p.note==='병가'?'selected':''}>병가</option>
                         <option value="월차" ${p.note==='월차'?'selected':''}>월차</option>
@@ -376,10 +404,15 @@
             if (absents.length === 0) {
                 msgEl.innerHTML = `✅ <b>전원 출석 완료!</b>`;
             } else {
-                const text = absents.map(p => 
-                    `<span style="background:#fee2e2; color:#b91c1c; padding:2px 5px; border-radius:4px; font-size:12px; margin-right:4px;">${p.note}</span>${p.name}`
-                ).join('&nbsp;&nbsp;');
-                msgEl.innerHTML = `📢 <b>불참:</b> ${text}`;
+                // [수정됨] 간편 모드일 때는 상단 불참자 명단 숨김 (기본 메시지 출력)
+                if (isSimpleMode) {
+                     msgEl.innerHTML = `오늘도 파이팅! ☀️ (불참 ${absents.length}명)`;
+                } else {
+                    const text = absents.map(p => 
+                        `<span style="background:#fee2e2; color:#b91c1c; padding:2px 5px; border-radius:4px; font-size:12px; margin-right:4px;">${p.note}</span>${p.name}`
+                    ).join('&nbsp;&nbsp;');
+                    msgEl.innerHTML = `📢 <b>불참:</b> ${text}`;
+                }
             }
         }
 
@@ -391,6 +424,14 @@
                     Storage.clear();
                     location.reload();
                 }
+            });
+
+            // 간편 모드 토글 이벤트
+            document.getElementById('toggleSimpleMode').addEventListener('change', (e) => {
+                isSimpleMode = e.target.checked;
+                Storage.set(Storage.keyMode, isSimpleMode); // 설정 저장
+                renderRoster(); // 다시 그리기 (select 박스 숨김/표시)
+                updateStatus(); // 상태창 업데이트
             });
 
             SEAT_IDS.forEach(id => {
@@ -439,23 +480,18 @@
                 modal.style.display = 'none';
             });
 
-            // --- 공유하기 버튼 이벤트 ---
             document.getElementById('btnShare').addEventListener('click', async () => {
                 const captureTarget = document.getElementById('captureArea');
-                
-                // 캡처 중임을 사용자에게 알림 (선택사항)
                 const btn = document.getElementById('btnShare');
                 const originalText = btn.innerHTML;
                 btn.innerText = "이미지 생성 중...";
 
                 try {
-                    // 1. html2canvas로 영역 캡처
                     const canvas = await html2canvas(captureTarget, {
-                        scale: 2, // 해상도 2배 (선명하게)
-                        backgroundColor: "#f1f5f9" // 배경색 지정
+                        scale: 2,
+                        backgroundColor: "#f1f5f9"
                     });
 
-                    // 2. 캔버스를 이미지 파일(Blob)로 변환
                     canvas.toBlob(async (blob) => {
                         if (!blob) {
                             alert('이미지 생성 실패');
@@ -464,7 +500,6 @@
 
                         const file = new File([blob], "seat_arrangement.png", { type: "image/png" });
 
-                        // 3. Web Share API 지원 여부 확인 및 공유
                         if (navigator.canShare && navigator.canShare({ files: [file] })) {
                             try {
                                 await navigator.share({
@@ -479,15 +514,13 @@
                                 }
                             }
                         } else {
-                            // 공유 API 미지원 브라우저 (PC 등) -> 이미지 다운로드 처리
                             const link = document.createElement('a');
                             link.download = '자리배치.png';
                             link.href = canvas.toDataURL();
                             link.click();
                             alert('이미지가 갤러리(다운로드 폴더)에 저장되었습니다. 카톡에서 사진을 전송해주세요.');
                         }
-                        
-                        btn.innerHTML = originalText; // 버튼 텍스트 복구
+                        btn.innerHTML = originalText;
                     });
 
                 } catch (err) {
