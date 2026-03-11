@@ -2,394 +2,1991 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>플렉시블 자리 배치</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, viewport-fit=cover">
+    <meta name="description" content="카페팀 출퇴근표, 자리 배치, 출석 관리를 위한 로컬 웹 앱. 데이터는 기기 브라우저에만 저장됩니다.">
+    <title>플렉시블 운영 도우미</title>
+
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
     <style>
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
 
         :root {
-            --bg-color: #f1f5f9;
+            --bg-color: #ffffff;
             --card-bg: #ffffff;
-            --primary: #3b82f6;
-            --primary-dark: #2563eb;
-            --text-main: #334155;
-            --border: #e2e8f0;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --danger: #ef4444;
+            --primary: #2383e2;
+            --primary-dark: #1a73c9;
+            --text-main: #37352f;
+            --text-sub: #6b7280;
+            --border: #e5e7eb;
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --danger: #eb5757;
+            --success: #0f9d58;
+            --warning: #f2994a;
+            --open: #e86c00;
+            --close: #5e6ad2;
+            --substitute: #0d9488;
             --kakao: #FEE500;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html.dark {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #60a5fa;
+            --primary-dark: #93c5fd;
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --border: #334155;
+            --shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+            --danger: #f87171;
+            --success: #4ade80;
+            --warning: #fbbf24;
+            --open: #fb923c;
+            --close: #818cf8;
+            --substitute: #2dd4bf;
+            --kakao: #facc15;
+        }
+
+        html.dark body {
+            background: radial-gradient(circle at top, rgba(59, 130, 246, 0.12), transparent 40%), var(--bg-color);
+        }
+
+        html.dark .hero-card {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-color: #334155;
+        }
+
+        html.dark .section-title h2,
+        html.dark .section-title h3,
+        html.dark .detail-date,
+        html.dark h1 { color: #f1f5f9; }
+        html.dark .month-label { color: #f1f5f9; }
+        html.dark .calendar-day-number { color: #f1f5f9; }
+        html.dark .stat-value { color: #f1f5f9; }
+        html.dark .list-item strong { color: #f1f5f9; }
+        html.dark .name-text { color: #e2e8f0; }
+        html.dark .modal-box { background: #1e293b; border-color: #334155; }
+        html.dark .modal-box h3 { color: #f1f5f9; }
+        html.dark .tab-nav { background: rgba(30, 41, 59, 0.9); border-color: #334155; }
+        html.dark .tab-btn:not(.active) { color: #94a3b8; }
+        html.dark .today-badge { background: #334155; color: #93c5fd; }
+        html.dark .seat { background: #334155; border-color: #475569; }
+        html.dark .seat-name { color: #e2e8f0; }
+        html.dark .seat.assigned { background: #1e3a5f; border-color: #60a5fa; }
+        html.dark .seat.assigned .seat-name { color: #93c5fd; }
+        html.dark .seat.fixed { background: #334155; }
+        html.dark .tv-screen { background: #475569; }
+        html.dark .detail-block { background: #334155; border-color: #475569; }
+        html.dark .detail-block h4 { color: #f1f5f9; }
+        html.dark .stat-tile { background: #334155; border-color: #475569; }
+        html.dark .calendar-day { background: linear-gradient(180deg, #334155 0%, #1e293b 100%); border-color: #475569; }
+        html.dark .calendar-day.today { border-color: #60a5fa; }
+        html.dark .member-pill { background: #334155; border-color: #475569; color: #e2e8f0; }
+        html.dark .list-item { background: #334155; border-color: #475569; }
+        html.dark .reason-select,
+        html.dark .field,
+        html.dark .date-field,
+        html.dark .textarea { background: #1e293b; border-color: #475569; color: #f1f5f9; }
+        html.dark .roster-item { background: #334155; border-color: #475569; }
+        html.dark .roster-item.absent { background: #450a0a; border-color: #7f1d1d; }
+        html.dark .status-text { background: #334155; }
+        html.dark .count-badge { background: #1e3a5f; color: #93c5fd; }
+        html.dark .small-badge { background: #164e63; color: #67e8f9; }
+        html.dark .btn-reset { background: #475569; color: #e2e8f0; }
+        html.dark .btn-edit { background: #334155; border-color: #475569; color: #e2e8f0; }
+        html.dark .simple-mode-toggle { background: #334155; border-color: #475569; color: #94a3b8; }
+        html.dark .hard-reset { color: #64748b; }
+
+        .cafe-seat-picker {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .cafe-seat-picker .member-pill {
+            min-width: 0;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
         body {
             font-family: "Pretendard", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            background-color: var(--bg-color);
+            background: var(--bg-color);
             margin: 0;
-            padding: 20px 15px 80px;
+            padding: 18px 14px 72px;
             color: var(--text-main);
-            display: flex; flex-direction: column; align-items: center;
+            display: flex;
+            justify-content: center;
             min-height: 100vh;
         }
 
-        h2 {
-            margin: 10px 0 20px 0;
-            font-size: 22px;
-            font-weight: 800;
-            text-align: center;
-            color: #1e293b;
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.2;
+            color: var(--text-main);
+        }
+
+        button,
+        select,
+        textarea,
+        input {
+            font: inherit;
+        }
+
+        button {
+            cursor: pointer;
+        }
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
         }
 
         .container {
             width: 100%;
-            max-width: 500px;
-            display: flex; flex-direction: column; gap: 20px;
+            max-width: 860px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        /* 공통 카드 스타일 */
+        .hero-card,
         .card {
             background: var(--card-bg);
-            border-radius: 20px;
-            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
             box-shadow: var(--shadow);
-            border: 1px solid #fff;
         }
 
-        /* 1. 상단 컨트롤 */
+        .hero-card {
+            padding: 22px 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+        }
+
+        .hero-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .hero-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        .theme-toggle {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            position: relative;
+        }
+        .theme-toggle .theme-icon { position: absolute; }
+        .theme-toggle .theme-icon.moon { display: none; }
+        html.dark .theme-toggle .theme-icon.sun { display: none; }
+        html.dark .theme-toggle .theme-icon.moon { display: inline; }
+
+        .hero-text {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .hero-subtitle {
+            font-size: 14px;
+            color: var(--text-sub);
+            line-height: 1.5;
+        }
+
+        .today-badge {
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: #f3f4f6;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+            border: 1px solid var(--border);
+        }
+
+        .tab-nav {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 6px;
+            background: #f9fafb;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            position: sticky;
+            top: 10px;
+            z-index: 20;
+        }
+
+        .tab-btn {
+            border: none;
+            border-radius: 16px;
+            padding: 16px 14px;
+            background: transparent;
+            color: var(--text-sub);
+            font-size: 15px;
+            font-weight: 800;
+            transition: 0.15s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        }
+
+        .tab-panel {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .tab-panel.active {
+            display: flex;
+        }
+
+        .card {
+            padding: 18px;
+        }
+
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .section-title h2,
+        .section-title h3 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--text-main);
+        }
+
+        .section-desc {
+            margin: 6px 0 0;
+            font-size: 13px;
+            color: var(--text-sub);
+            line-height: 1.45;
+        }
+        .section-desc--no-margin {
+            margin-top: 0;
+        }
+
         .status-text {
             text-align: center;
-            font-size: 15px; font-weight: 500; color: #64748b;
-            margin-bottom: 15px;
-            background: #f8fafc; padding: 10px; border-radius: 12px;
-            min-height: 42px; display: flex; align-items: center; justify-content: center;
-        }
-        
-        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
-        .btn {
-            border: none; border-radius: 12px;
-            padding: 15px 0; font-size: 16px; font-weight: 700;
-            cursor: pointer; flex: 1; 
-            display: flex; justify-content: center; align-items: center;
-            transition: 0.1s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        .btn:active { transform: scale(0.97); }
-        
-        .btn-mix { background: var(--primary); color: white; flex: 2; }
-        .btn-reset { background: #cbd5e1; color: #475569; }
-        
-        /* 공유 버튼 스타일 */
-        .btn-share {
-            background: var(--kakao); color: #3c1e1e;
-            width: 100%; margin-top: 5px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-sub);
+            background: #f8fafc;
+            padding: 14px;
+            border-radius: 16px;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1.5;
         }
 
-        /* 2. TV 및 좌석 영역 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 16px;
+            padding: 15px 14px;
+            font-size: 15px;
+            font-weight: 800;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: 0.12s ease;
+            min-height: 52px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-mix {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: #fff;
+            flex: 2;
+        }
+
+        .btn-reset {
+            background: #f3f4f6;
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-share {
+            background: var(--kakao);
+            color: #3c1e1e;
+            width: 100%;
+            margin-top: 6px;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: var(--text-main);
+            border: 1px solid #cbd5e1;
+        }
+
+        .btn-add {
+            width: 100%;
+            background: var(--text-main);
+            color: var(--card-bg);
+        }
+        html.dark .btn-add {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+
+        #captureArea {
+            background-color: var(--bg-color);
+            padding: 6px;
+            border-radius: 18px;
+        }
+
         .tv-screen {
-            background: #334155; color: white;
-            padding: 8px 0; border-radius: 6px;
-            margin: 0 auto 25px auto; width: 70%;
-            text-align: center; font-weight: bold; letter-spacing: 1px; font-size: 14px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: #334155;
+            color: white;
+            padding: 10px 0;
+            border-radius: 10px;
+            margin: 0 auto 24px;
+            width: 70%;
+            text-align: center;
+            font-weight: 700;
+            letter-spacing: 1px;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .seat-wrapper {
-            display: flex; justify-content: center; gap: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 14px;
         }
-        .col-grid { display: grid; gap: 8px; }
-        .left-group { grid-template-columns: 1fr 1fr; }
-        .right-group { grid-template-columns: 1fr 1fr 1fr; }
+
+        .col-grid {
+            display: grid;
+            gap: 8px;
+        }
+
+        .left-group {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .right-group {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
 
         .seat {
-            width: 100%; aspect-ratio: 1/1.2; min-width: 42px;
-            background: #fff; border: 1px solid #cbd5e1; border-radius: 10px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%;
+            aspect-ratio: 1 / 1.18;
+            min-width: 42px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             position: relative;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
             transition: 0.2s;
             cursor: pointer;
         }
-        .seat-num { position: absolute; top: 3px; left: 5px; font-size: 10px; color: #94a3b8; }
-        .seat-name { 
-            font-size: 14px; font-weight: 800; color: #334155; 
-            text-align: center; line-height: 1.1; word-break: keep-all; padding: 0 2px;
+
+        .seat-num {
+            position: absolute;
+            top: 4px;
+            left: 6px;
+            font-size: 10px;
+            color: #94a3b8;
         }
 
-        .seat.fixed { background: #f1f5f9; border-color: #e2e8f0; cursor: default; }
-        .seat.fixed .seat-name { font-size: 12px; color: #94a3b8; }
-
-        .seat.assigned { 
-            background: #eff6ff; border-color: #60a5fa; 
-            box-shadow: 0 0 0 2px #bfdbfe; z-index: 10;
+        .seat-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: #334155;
+            text-align: center;
+            line-height: 1.15;
+            word-break: keep-all;
+            padding: 0 3px;
         }
-        .seat.assigned .seat-name { color: #2563eb; }
+
+        .seat.fixed {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            cursor: default;
+        }
+
+        .seat.fixed .seat-name {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .seat.seat-cafe {
+            cursor: pointer;
+            background: #fef3c7;
+            border-color: #fcd34d;
+        }
+        .seat.seat-cafe .seat-name { font-size: 12px; color: #b45309; }
+        .seat.seat-cafe.assigned { background: #fde68a; border-color: #f59e0b; }
+        .seat.seat-cafe.assigned .seat-name { color: #92400e; font-weight: 800; }
+        html.dark .seat.seat-cafe { background: #451a03; border-color: #78350f; }
+        html.dark .seat.seat-cafe.assigned { background: #78350f; border-color: #b45309; }
+        html.dark .seat.seat-cafe .seat-name { color: #fcd34d; }
+
+        .seat.assigned {
+            background: #eff6ff;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px #bfdbfe;
+            z-index: 10;
+        }
+
+        .seat.assigned .seat-name {
+            color: #2563eb;
+        }
 
         .seat.disabled {
-            background: #f1f5f9; border-color: #e2e8f0; opacity: 0.7;
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            opacity: 0.72;
         }
-        .seat.disabled::after {
-            content: "❌"; font-size: 18px; position: absolute;
-        }
-        .seat.disabled .seat-num { opacity: 0.5; }
-        .seat.disabled .seat-name { display: none; }
 
-        /* 3. 출석부 */
+        .seat.disabled::after {
+            content: "X";
+            font-size: 18px;
+            font-weight: 800;
+            color: #94a3b8;
+            position: absolute;
+        }
+
+        .seat.disabled .seat-num {
+            opacity: 0.5;
+        }
+
+        .seat.disabled .seat-name {
+            display: none;
+        }
+
+        .tip-text {
+            font-size: 12px;
+            color: var(--text-sub);
+            text-align: center;
+            margin: 18px 0 0;
+            line-height: 1.5;
+        }
+
         .roster-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 15px; padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 14px;
+            padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
         }
-        .roster-title { font-weight: bold; font-size: 16px; display: flex; align-items: center; gap: 6px; }
-        .count-badge { font-size: 13px; color: var(--primary); background: #eff6ff; padding: 2px 8px; border-radius: 10px; }
-        
-        .header-controls { display: flex; align-items: center; gap: 8px; }
+
+        .roster-title {
+            font-weight: 800;
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .count-badge,
+        .small-badge {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-weight: 700;
+        }
+
+        .count-badge {
+            color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .small-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
 
         .btn-edit {
-            background: #fff; border: 1px solid #cbd5e1; color: #475569;
-            padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: bold;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            padding: 9px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 800;
         }
 
-        /* 간편 모드 토글 스타일 */
         .simple-mode-toggle {
-            display: flex; align-items: center; font-size: 12px; color: #64748b; font-weight: 600;
-            background: #f8fafc; padding: 4px 8px; border-radius: 8px; border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-sub);
+            font-weight: 700;
+            background: #f8fafc;
+            padding: 6px 10px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            min-height: 40px;
         }
-        .simple-mode-toggle input { margin-right: 5px; }
+
+        .simple-mode-toggle input {
+            margin-right: 6px;
+        }
 
         .roster-list {
-            max-height: 350px; overflow-y: auto;
-            display: flex; flex-direction: column; gap: 8px;
+            max-height: 420px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
-        
+
         .roster-item {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px; border: 1px solid #f1f5f9; border-radius: 12px;
-            background: #fff; transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px;
+            border: 1px solid #f1f5f9;
+            border-radius: 16px;
+            background: #fff;
+            transition: 0.2s;
         }
-        .roster-item.absent { background: #fef2f2; border-color: #fee2e2; }
 
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-right: 12px; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-        input:checked + .slider { background-color: var(--primary); }
-        input:checked + .slider:before { transform: translateX(20px); }
+        .roster-item.absent {
+            background: #fef2f2;
+            border-color: #fee2e2;
+        }
 
-        .name-text { flex: 1; font-weight: 600; font-size: 15px; color: #334155; }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background-color: #cbd5e1;
+            transition: 0.4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: 0.4s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        input:checked + .slider {
+            background-color: var(--primary);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        .name-text {
+            flex: 1;
+            font-weight: 700;
+            font-size: 15px;
+            color: #334155;
+        }
+
+        .reason-select,
+        .field,
+        .date-field {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            font-size: 14px;
+            background: #fff;
+            color: #0f172a;
+            outline: none;
+        }
+        .reason-select:focus,
+        .field:focus,
+        .date-field:focus,
+        .textarea:focus {
+            border-color: var(--primary);
+        }
+
         .reason-select {
-            padding: 4px; border: 1px solid #fecaca; border-radius: 6px;
-            font-size: 12px; color: #b91c1c; background: #fff; outline: none;
+            width: auto;
+            min-width: 94px;
+            padding: 7px 8px;
+            font-size: 12px;
+            color: #b91c1c;
+            border-color: #fecaca;
         }
 
-        /* 모달 */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5); z-index: 999;
-            display: none; justify-content: center; align-items: center;
-            backdrop-filter: blur(3px);
+        .schedule-highlight {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
         }
-        .modal-box {
-            background: white; width: 85%; max-width: 320px;
-            padding: 25px; border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            display: flex; flex-direction: column; gap: 15px;
+
+        .stat-tile {
+            padding: 14px;
+            border-radius: 18px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
         }
-        .modal-box h3 { margin: 0; text-align: center; font-size: 18px; }
-        textarea {
-            width: 100%; height: 150px; padding: 12px;
-            border: 1px solid #cbd5e1; border-radius: 12px;
-            font-size: 15px; resize: none; outline: none;
-            font-family: inherit;
+
+        .stat-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+            font-weight: 700;
         }
-        .modal-btns { display: flex; gap: 10px; }
+
+        .stat-value {
+            font-size: 17px;
+            font-weight: 800;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+        .stat-value--status {
+            font-size: 14px;
+            font-weight: 700;
+            line-height: 1.45;
+            word-break: keep-all;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .month-nav {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            font-size: 18px;
+            font-weight: 800;
+            flex-shrink: 0;
+        }
+
+        .month-label-wrap {
+            text-align: center;
+            flex: 1;
+        }
+
+        .month-label {
+            font-size: 22px;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .month-subtext {
+            margin-top: 4px;
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        .weekday-row {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .weekday-row--workdays {
+            grid-template-columns: repeat(5, 1fr);
+        }
+
+        .weekday {
+            text-align: center;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-sub);
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .calendar-grid--workdays {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .calendar-day {
+            min-height: 100px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            padding: 8px 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: stretch;
+            text-align: center;
+        }
+
+        .calendar-day.empty {
+            visibility: hidden;
+        }
+
+        .calendar-day.today {
+            border-color: var(--primary);
+            box-shadow: inset 0 0 0 1px rgba(35, 131, 226, 0.2);
+        }
+
+        .calendar-day.selected {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.25);
+        }
+
+        .calendar-day-number {
+            font-size: 15px;
+            font-weight: 900;
+            color: var(--text-main);
+        }
+
+        .calendar-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .summary-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            min-height: 22px;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 800;
+            text-align: center;
+        }
+        .summary-chip.chip-open,
+        .summary-chip.chip-close {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            padding: 4px 6px;
+        }
+
+        .chip-open {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+
+        .chip-close {
+            background: #e0e7ff;
+            color: #4338ca;
+        }
+
+        .chip-status {
+            background: #fef3c7;
+            color: #b45309;
+        }
+        .chip-status.chip-status--named {
+            font-size: 10px;
+            padding: 2px 6px;
+            min-height: 20px;
+        }
+
+        .chip-substitute {
+            background: #ccfbf1;
+            color: #0f766e;
+        }
+
+        .chip-label-row {
+            display: block;
+            font-size: 10px;
+            font-weight: 800;
+            margin-bottom: 2px;
+            opacity: 0.95;
+        }
+        .chip-names-row {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.35;
+            word-break: keep-all;
+        }
+        .summary-chip.chip-open .chip-names-row,
+        .summary-chip.chip-close .chip-names-row {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        @media (min-width: 480px) {
+            .summary-chip.chip-open .chip-names-row,
+            .summary-chip.chip-close .chip-names-row { white-space: normal; }
+        }
+
+        .muted-note {
+            color: var(--text-sub);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .detail-date {
+            font-size: 22px;
+            font-weight: 900;
+            color: var(--text-main);
+        }
+
+        .detail-subtext {
+            margin-top: 6px;
+            color: var(--text-sub);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        .detail-grid {
+            display: grid;
+            gap: 16px;
+        }
+
+        .detail-block {
+            padding: 16px;
+            border-radius: 20px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .detail-block h4 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .pill-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .member-pill {
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #334155;
+            border-radius: 999px;
+            padding: 10px 14px;
+            min-height: 42px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .member-pill.active[data-role="open"] {
+            background: #ffedd5;
+            border-color: #fdba74;
+            color: #c2410c;
+        }
+
+        .member-pill.active[data-role="close"] {
+            background: #e0e7ff;
+            border-color: #a5b4fc;
+            color: #4338ca;
+        }
+
+        .stack-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+        }
+
+        .list-item strong {
+            display: block;
+            font-size: 14px;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .list-item span {
+            display: block;
+            color: var(--text-sub);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+        .list-item--substitute .substitute-dates {
+            margin-top: 4px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        .inline-badge {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 800;
+            margin-right: 6px;
+        }
+
+        .badge-late { background: #fef3c7; color: #b45309; }
+        .badge-absence { background: #fee2e2; color: #b91c1c; }
+        .badge-leave { background: #dcfce7; color: #15803d; }
+        .badge-substitute { background: #ccfbf1; color: #0f766e; }
+
+        .icon-btn {
+            min-width: 40px;
+            min-height: 40px;
+            border-radius: 12px;
+            border: 1px solid #fecaca;
+            background: #fff1f2;
+            color: #be123c;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .form-row {
+            display: grid;
+            gap: 10px;
+        }
+        .form-row--spaced {
+            margin-bottom: 12px;
+        }
+
+        .field-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }
+
+        .textarea {
+            width: 100%;
+            min-height: 90px;
+            resize: vertical;
+            padding: 12px 14px;
+            border-radius: 16px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            color: #0f172a;
+            outline: none;
+        }
 
         .hard-reset {
-            margin-top: 30px; font-size: 12px; color: #cbd5e1; 
-            text-decoration: underline; background: none; border: none;
+            margin-top: 8px;
+            padding: 10px 14px;
+            font-size: 12px;
+            color: var(--text-sub);
+            text-decoration: none;
+            background: transparent;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            display: block;
+            width: 100%;
+            cursor: pointer;
+            transition: 0.15s ease;
         }
-        .tip-text {
-            font-size: 12px; color: #64748b; text-align: center; margin-top: -15px;
+        .hard-reset:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        .hard-reset:focus-visible {
+            outline: 2px solid var(--danger);
+            outline-offset: 2px;
         }
 
-        /* 캡처용 스타일 */
-        #captureArea {
-            background-color: var(--bg-color); 
-            padding: 10px;
-            border-radius: 10px;
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            z-index: 999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+            padding: 20px;
+        }
+
+        .modal-box {
+            background: white;
+            width: min(100%, 380px);
+            padding: 22px;
+            border-radius: 24px;
+            box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .modal-box--wide {
+            width: min(100%, 420px);
+        }
+        .substitute-popup-body {
+            max-height: 60vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .substitute-popup-item {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+        }
+        .substitute-popup-item strong { display: block; margin-bottom: 4px; }
+        .substitute-popup-item .substitute-dates { font-size: 12px; color: var(--text-sub); }
+
+        .modal-box h3 {
+            margin: 0;
+            text-align: center;
+            font-size: 20px;
+            color: #0f172a;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+        }
+        .btn-full {
+            width: 100%;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 88px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 14px;
+            background: var(--text-main);
+            color: var(--card-bg);
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-sub);
+            line-height: 1.5;
+        }
+
+        @media (min-width: 768px) {
+            body {
+                padding: 22px 18px 80px;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1.1fr 0.9fr;
+                align-items: start;
+            }
+
+            .form-row.two-cols {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .schedule-highlight {
+                grid-template-columns: repeat(4, 1fr);
+            }
+
+            .calendar-day {
+                min-height: 122px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            .hero-top,
+            .roster-header,
+            .section-title,
+            .calendar-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .header-controls {
+                justify-content: stretch;
+            }
+
+            .header-controls > * {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+
+            .calendar-day {
+                min-height: 98px;
+                padding: 8px 6px;
+                border-radius: 16px;
+            }
+
+            .calendar-grid--workdays,
+            .weekday-row--workdays {
+                gap: 6px;
+            }
+
+            .summary-chip {
+                font-size: 10px;
+                min-height: 20px;
+                padding: 3px 5px;
+            }
+            .summary-chip.chip-open,
+            .summary-chip.chip-close {
+                min-height: 32px;
+            }
+            .chip-names-row { font-size: 10px; }
+
+            .month-label {
+                font-size: 20px;
+            }
+
+            .seat-wrapper {
+                gap: 10px;
+            }
         }
     </style>
 </head>
 <body>
-
-    <h2>플렉시블 자리 배치</h2>
-
     <div class="container">
-        
-        <div id="captureArea">
-            <div class="card" style="margin-bottom: 20px;">
-                <div class="status-text" id="statusMsg">오늘도 파이팅! ☀️</div>
+        <section class="hero-card">
+            <div class="hero-top">
+                <div class="hero-text">
+                    <h1>플렉시블 운영 도우미</h1>
+                    <div class="hero-subtitle">자리 배치와 카페팀 출퇴근표를 모바일과 태블릿에서 한 화면으로 관리할 수 있게 구성했습니다. 데이터는 이 기기 브라우저에만 저장됩니다.</div>
+                </div>
+                <div class="hero-right">
+                    <button type="button" id="btnTheme" class="theme-toggle" aria-label="라이트/다크 모드 전환" title="라이트/다크 모드">
+                        <span class="theme-icon sun">☀️</span>
+                        <span class="theme-icon moon">🌙</span>
+                    </button>
+                    <div id="todayBadge" class="today-badge"></div>
+                </div>
             </div>
+        </section>
 
-            <div class="card" style="padding-top: 30px;">
-                <div class="tv-screen">TV</div>
-                
-                <div class="seat-wrapper">
-                    <div class="col-grid left-group">
-                        <div class="seat" id="s1"><span class="seat-num">1</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s2"><span class="seat-num">2</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s6"><span class="seat-num">6</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s7"><span class="seat-num">7</span><span class="seat-name"></span></div>
-                        <div class="seat fixed"><span class="seat-name">카페팀</span></div>
-                        <div class="seat fixed"><span class="seat-name">카페팀</span></div>
+        <nav class="tab-nav" aria-label="메인 탭">
+            <button type="button" class="tab-btn active" data-tab="schedule">카페팀 출퇴근표</button>
+            <button type="button" class="tab-btn" data-tab="seat">자리 배치</button>
+        </nav>
+
+        <section id="tabSchedule" class="tab-panel active">
+            <div class="card">
+                <div class="section-title">
+                    <div>
+                        <h2>카페팀 출퇴근표</h2>
+                        <p class="section-desc">2주 로테이션으로 오픈/마감이 자동 표시됩니다. 월간 일정과 날짜별 상세를 확인·수정할 수 있습니다.</p>
                     </div>
-                    <div class="col-grid right-group">
-                        <div class="seat" id="s3"><span class="seat-num">3</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s4"><span class="seat-num">4</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s5"><span class="seat-num">5</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s8"><span class="seat-num">8</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s9"><span class="seat-num">9</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s10"><span class="seat-num">10</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s11"><span class="seat-num">11</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s12"><span class="seat-num">12</span><span class="seat-name"></span></div>
-                        <div class="seat" id="s13"><span class="seat-num">13</span><span class="seat-name"></span></div>
+                    <div class="header-controls">
+                        <button type="button" id="btnAddMember" class="btn-edit">이름 추가</button>
+                        <span class="small-badge" title="모바일·태블릿에서 사용을 권장합니다">모바일·태블릿 권장</span>
                     </div>
                 </div>
-                <p class="tip-text" style="margin-top: 20px;">💡 자리를 터치하면 <b>[사용 안 함]</b>으로 잠금</p>
+                <div class="form-row form-row--spaced">
+                    <label class="field-label" for="rotationStartDate">로테이션 시작 월요일</label>
+                    <input type="date" id="rotationStartDate" class="date-field">
+                </div>
+                <div id="scheduleHighlight" class="schedule-highlight"></div>
             </div>
-        </div>
-        <div class="card">
-            <div class="btn-group">
-                <button id="btnMix" class="btn btn-mix">🎲 자리 섞기</button>
-                <button id="btnReset" class="btn btn-reset">🔄 초기화</button>
-            </div>
-            <button id="btnShare" class="btn btn-share">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
-                </svg>
-                카톡으로 결과 공유하기
-            </button>
-        </div>
 
-        <div class="card">
-            <div class="roster-header">
-                <div class="roster-title">
-                    📋 출석 <span id="countBadge" class="count-badge">0/0</span>
+            <div class="card">
+                <div class="calendar-header">
+                    <button id="btnPrevMonth" class="month-nav" type="button" aria-label="이전 달">‹</button>
+                    <div class="month-label-wrap">
+                        <div id="monthLabel" class="month-label"></div>
+                        <div id="monthSubtext" class="month-subtext"></div>
+                    </div>
+                    <button id="btnNextMonth" class="month-nav" type="button" aria-label="다음 달">›</button>
                 </div>
-                <div class="header-controls">
-                    <label class="simple-mode-toggle">
-                        <input type="checkbox" id="toggleSimpleMode"> 간편 모드
-                    </label>
-                    <button id="btnEdit" class="btn-edit">✏️ 수정</button>
+
+                <div class="weekday-row weekday-row--workdays">
+                    <div class="weekday">월</div>
+                    <div class="weekday">화</div>
+                    <div class="weekday">수</div>
+                    <div class="weekday">목</div>
+                    <div class="weekday">금</div>
+                </div>
+
+                <div id="calendarGrid" class="calendar-grid calendar-grid--workdays"></div>
+            </div>
+
+            <div class="detail-grid">
+                <div class="card">
+                    <div class="section-title">
+                        <div>
+                            <h3>선택한 날짜 상세</h3>
+                            <div id="selectedDateTitle" class="detail-date"></div>
+                            <div id="selectedDateSubtext" class="detail-subtext"></div>
+                        </div>
+                    </div>
+                    <div id="scheduleDetail"></div>
+                </div>
+
+                <div class="card">
+                    <div class="section-title">
+                        <div>
+                            <h3>관리 메모</h3>
+                            <p class="section-desc">대타 기간이나 전달 사항을 적어두면 확인이 쉽습니다.</p>
+                        </div>
+                    </div>
+                    <label class="field-label" for="dayMemo">선택한 날짜 메모</label>
+                    <textarea id="dayMemo" class="textarea" placeholder="예: 3월 14일~3월 20일 김OO 대신 박OO 오픈 근무"></textarea>
+                    <p class="footer-note">출퇴근표 데이터는 현재 기기 브라우저에 저장됩니다.</p>
                 </div>
             </div>
-            <div id="rosterList" class="roster-list">
-                </div>
-        </div>
+        </section>
 
-        <button id="btnHardReset" class="hard-reset">⚠️ 앱이 작동하지 않나요? (초기화)</button>
+        <section id="tabSeat" class="tab-panel">
+            <div id="captureArea">
+                <div class="card">
+                    <div class="section-title">
+                        <div>
+                            <h2>오늘의 자리 배치</h2>
+                            <p class="section-desc">출석 인원 기준으로 좌석을 랜덤 배치하고 사용 안 하는 자리를 잠글 수 있습니다.</p>
+                        </div>
+                    </div>
+                    <div class="status-text" id="statusMsg">오늘도 파이팅! (불참 0명)</div>
+                </div>
+
+                <div class="card">
+                    <div class="tv-screen">TV</div>
+
+                    <div class="seat-wrapper">
+                        <div class="col-grid left-group">
+                            <div class="seat" id="s1"><span class="seat-num">1</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s2"><span class="seat-num">2</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s6"><span class="seat-num">6</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s7"><span class="seat-num">7</span><span class="seat-name"></span></div>
+                            <div class="seat seat-cafe" id="cafeSeat1" data-cafe-index="0"><span class="seat-name">카페팀</span></div>
+                            <div class="seat seat-cafe" id="cafeSeat2" data-cafe-index="1"><span class="seat-name">카페팀</span></div>
+                        </div>
+                        <div class="col-grid right-group">
+                            <div class="seat" id="s3"><span class="seat-num">3</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s4"><span class="seat-num">4</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s5"><span class="seat-num">5</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s8"><span class="seat-num">8</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s9"><span class="seat-num">9</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s10"><span class="seat-num">10</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s11"><span class="seat-num">11</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s12"><span class="seat-num">12</span><span class="seat-name"></span></div>
+                            <div class="seat" id="s13"><span class="seat-num">13</span><span class="seat-name"></span></div>
+                        </div>
+                    </div>
+                    <p class="tip-text">숫자 자리: 터치 시 사용 안 함 잠금. <strong>카페팀</strong> 자리: 터치 시 오픈조 인원을 선택해 배치합니다(손님 응대용).</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="btn-group">
+                    <button id="btnMix" class="btn btn-mix" type="button" title="출석 인원을 숫자 자리에 랜덤 배치합니다">자리 섞기</button>
+                    <button id="btnReset" class="btn btn-reset" type="button" title="배치된 이름만 지우고 자리는 비웁니다">초기화</button>
+                </div>
+                <button id="btnShare" class="btn btn-share" type="button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/>
+                    </svg>
+                    카톡으로 결과 공유하기
+                </button>
+            </div>
+
+            <div class="card">
+                <div class="roster-header">
+                    <div class="roster-title">
+                        출석 현황 <span id="countBadge" class="count-badge">0/0</span>
+                    </div>
+                    <div class="header-controls">
+                        <label class="simple-mode-toggle">
+                            <input type="checkbox" id="toggleSimpleMode">
+                            간편 모드
+                        </label>
+                        <button id="btnEdit" class="btn-edit" type="button">명단 수정</button>
+                    </div>
+                </div>
+                <div id="rosterList" class="roster-list"></div>
+            </div>
+        </section>
+
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+        <button id="btnHardReset" class="hard-reset" type="button">앱이 작동하지 않나요? 데이터 초기화</button>
     </div>
 
     <div id="editModal" class="modal-overlay">
         <div class="modal-box">
             <h3>명단 수정</h3>
-            <textarea id="editInput" placeholder="이름을 줄바꿈(엔터)으로 입력하세요"></textarea>
+            <textarea id="editInput" class="textarea" placeholder="이름을 줄바꿈(엔터)으로 입력하세요"></textarea>
             <div class="modal-btns">
-                <button id="btnCancel" class="btn btn-reset">취소</button>
-                <button id="btnSave" class="btn btn-mix">저장</button>
+                <button id="btnCancel" class="btn btn-reset" type="button">취소</button>
+                <button id="btnSave" class="btn btn-mix" type="button">저장</button>
             </div>
         </div>
     </div>
 
+    <div id="addMemberModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>카페팀 이름 추가</h3>
+            <label class="field-label" for="newMemberName">이름</label>
+            <input type="text" id="newMemberName" class="field" placeholder="이름 입력" maxlength="20">
+            <div class="modal-btns">
+                <button id="btnAddMemberCancel" class="btn btn-reset" type="button">취소</button>
+                <button id="btnAddMemberOk" class="btn btn-mix" type="button">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cafeSeatModal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="cafeSeatModalTitle">카페팀 자리 (손님 응대)</h3>
+            <p class="section-desc section-desc--no-margin">배치할 인원을 선택하세요. 해당 자리는 오픈조가 앉아 손님 응대합니다.</p>
+            <div class="cafe-seat-picker" id="cafeSeatPicker"></div>
+            <button type="button" id="cafeSeatModalClose" class="btn btn-reset btn-full">닫기</button>
+        </div>
+    </div>
+
+    <div id="substitutePopupModal" class="modal-overlay">
+        <div class="modal-box modal-box--wide">
+            <h3 id="substitutePopupTitle">이 날짜의 대타 현황</h3>
+            <div id="substitutePopupBody" class="substitute-popup-body"></div>
+            <button type="button" id="substitutePopupClose" class="btn btn-reset btn-full">닫기</button>
+        </div>
+    </div>
+
     <script>
-        const DEFAULT_ROSTER = [
-            "권호담", "김소영", "김태형", "문태일", "박솔빈", 
-            "박우성", "백요한", "여홍기", "염종헌", "이성훈", 
-            "이혜진", "임민섭", "조한미"
-        ];
+        // 데이터: localStorage 전용. 사용자/저장 데이터는 innerHTML 삽입 전 escapeHtml() 처리.
+        const DEFAULT_ROSTER = ["백요한", "박우성", "조한미", "김선호", "민광덕"];
+        const CAFE_SCHEDULE_MEMBERS = ["김선호", "민광덕", "박우성", "백요한", "조한미"];
+        const ROTATION_GROUP_A = ["백요한", "조한미"];
+        const ROTATION_GROUP_B = ["김선호", "민광덕"];
         const SEAT_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-        
+        const STATUS_OPTIONS = ["지각", "결근", "병가", "월차", "반차", "기타"];
+
+        function escapeHtml(str) {
+            if (str == null) return "";
+            const s = String(str);
+            const div = document.createElement("div");
+            div.textContent = s;
+            return div.innerHTML;
+        }
+
         let roster = [];
         let disabledSeats = [];
-        let isSimpleMode = false; // 간편 모드 상태 (기본값: 꺼짐)
+        let cafeSeatAssignments = [null, null];
+        let isSimpleMode = false;
+        let activeTab = "seat";
+        let scheduleState = null;
+        let cafeSeatEditingIndex = 0;
 
         const Storage = {
-            keyRoster: 'seat_app_roster_v2', 
-            keySeats: 'seat_app_disabled_v2',
-            keyMode: 'seat_app_simple_mode_v1', // 모드 저장 키
-            get: function(key) {
+            keyRoster: "seat_app_roster_v2",
+            keySeats: "seat_app_disabled_v2",
+            keyMode: "seat_app_simple_mode_v1",
+            keyTab: "seat_app_active_tab_v1",
+            keySchedule: "cafe_schedule_v1",
+            keyTheme: "app_theme_v1",
+            keyCafeSeats: "cafe_seats_v1",
+            get(key) {
                 try {
                     const data = localStorage.getItem(key);
                     return data ? JSON.parse(data) : null;
-                } catch (e) { return null; }
+                } catch (e) {
+                    return null;
+                }
             },
-            set: function(key, data) {
-                try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) {}
+            set(key, data) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (e) {}
             },
-            clear: function() {
-                try { localStorage.clear(); } catch(e){}
+            clear() {
+                try {
+                    localStorage.clear();
+                } catch (e) {}
             }
         };
 
         document.addEventListener("DOMContentLoaded", () => {
+            loadAppState();
+            bindEvents();
+            renderApp();
+        });
+
+        function loadAppState() {
             const savedRoster = Storage.get(Storage.keyRoster);
-            if (savedRoster && Array.isArray(savedRoster) && savedRoster.length > 0) {
-                roster = savedRoster;
-            } else {
-                roster = DEFAULT_ROSTER.sort().map(name => ({
-                    name: name, on: true, note: '지각'
-                }));
-            }
+            roster = normalizeRoster(savedRoster);
 
             const savedSeats = Storage.get(Storage.keySeats);
-            if(savedSeats && Array.isArray(savedSeats)) {
+            if (savedSeats && Array.isArray(savedSeats)) {
                 disabledSeats = savedSeats;
             }
 
-            // 간편 모드 불러오기
             const savedMode = Storage.get(Storage.keyMode);
             if (savedMode !== null) {
                 isSimpleMode = savedMode;
-                document.getElementById('toggleSimpleMode').checked = isSimpleMode;
             }
 
+            const savedTab = Storage.get(Storage.keyTab);
+            if (savedTab === "seat" || savedTab === "schedule") {
+                activeTab = savedTab;
+            } else {
+                activeTab = "schedule";
+            }
+
+            const savedSchedule = Storage.get(Storage.keySchedule);
+            scheduleState = normalizeSchedule(savedSchedule);
+
+            const savedTheme = Storage.get(Storage.keyTheme);
+            document.documentElement.classList.toggle("dark", savedTheme === "dark");
+
+            const savedCafeSeats = Storage.get(Storage.keyCafeSeats);
+            if (savedCafeSeats && Array.isArray(savedCafeSeats) && savedCafeSeats.length === 2) {
+                cafeSeatAssignments = savedCafeSeats.map(name => (name && CAFE_SCHEDULE_MEMBERS.includes(name)) ? name : null);
+            }
+        }
+
+        function normalizeRoster(source) {
+            const defaultSet = new Set(DEFAULT_ROSTER);
+            if (Array.isArray(source) && source.length > 0) {
+                if (typeof source[0] === "string") {
+                    const names = [...new Set(source.map(item => item.trim()).filter(Boolean))];
+                    const kept = names.filter(name => defaultSet.has(name));
+                    const base = kept.length > 0 ? kept : DEFAULT_ROSTER.slice();
+                    return base.sort((a, b) => a.localeCompare(b, "ko")).map(name => ({ name, on: true, note: "지각" }));
+                }
+                const list = source
+                    .map(person => ({
+                        name: String(person.name || "").trim(),
+                        on: person.on !== false,
+                        note: STATUS_OPTIONS.includes(person.note) ? person.note : "지각"
+                    }))
+                    .filter(person => person.name);
+                const kept = list.filter(p => defaultSet.has(p.name));
+                const added = list.filter(p => !defaultSet.has(p.name));
+                const base = kept.length > 0 ? [...kept, ...added] : DEFAULT_ROSTER.map(name => ({ name, on: true, note: "지각" }));
+                return base.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+            }
+            return DEFAULT_ROSTER.slice().sort((a, b) => a.localeCompare(b, "ko")).map(name => ({
+                name,
+                on: true,
+                note: "지각"
+            }));
+        }
+
+        function getThisWeekMondayKey() {
+            const d = new Date();
+            const day = d.getDay();
+            const diff = day === 0 ? 6 : day - 1;
+            d.setDate(d.getDate() - diff);
+            return formatDateKey(d);
+        }
+
+        function normalizeSchedule(source) {
+            const today = new Date();
+            const defaultDate = formatDateKey(today);
+            const currentMonth = formatMonthKey(today);
+            const defaultRotationStart = getThisWeekMondayKey();
+            const normalized = {
+                currentMonth,
+                selectedDate: defaultDate,
+                rotationStartMonday: defaultRotationStart,
+                days: {}
+            };
+
+            if (source && typeof source === "object") {
+                if (typeof source.currentMonth === "string") {
+                    normalized.currentMonth = source.currentMonth;
+                }
+                if (typeof source.selectedDate === "string") {
+                    normalized.selectedDate = source.selectedDate;
+                }
+                if (typeof source.rotationStartMonday === "string" && isDateKey(source.rotationStartMonday)) {
+                    normalized.rotationStartMonday = source.rotationStartMonday;
+                }
+                if (source.days && typeof source.days === "object") {
+                    Object.entries(source.days).forEach(([dateKey, day]) => {
+                        normalized.days[dateKey] = normalizeDayData(day);
+                    });
+                }
+            }
+
+            if (!normalized.selectedDate.startsWith(normalized.currentMonth)) {
+                normalized.selectedDate = `${normalized.currentMonth}-01`;
+            }
+
+            return normalized;
+        }
+
+        function getRotationForDate(dateKey) {
+            const start = scheduleState.rotationStartMonday;
+            const [y, m, d] = dateKey.split("-").map(Number);
+            const dateMs = new Date(y, m - 1, d).getTime();
+            const [sy, sm, sd] = start.split("-").map(Number);
+            const startMs = new Date(sy, sm - 1, sd).getTime();
+            const daysSince = Math.floor((dateMs - startMs) / (24 * 60 * 60 * 1000));
+            const block = Math.floor(daysSince / 14);
+            if (block % 2 === 0) {
+                return { open: ROTATION_GROUP_A.slice(), close: ROTATION_GROUP_B.slice() };
+            }
+            return { open: ROTATION_GROUP_B.slice(), close: ROTATION_GROUP_A.slice() };
+        }
+
+        function isWeekend(dateKey) {
+            const [y, m, d] = dateKey.split("-").map(Number);
+            const day = new Date(y, m - 1, d).getDay();
+            return day === 0 || day === 6;
+        }
+
+        function toNearestWeekday(dateKey) {
+            if (!isWeekend(dateKey)) return dateKey;
+            const [y, m, d] = dateKey.split("-").map(Number);
+            const date = new Date(y, m - 1, d);
+            const day = date.getDay();
+            if (day === 0) date.setDate(date.getDate() + 1);
+            else if (day === 6) date.setDate(date.getDate() - 1);
+            return formatDateKey(date);
+        }
+
+        function getDisplayDayData(dateKey) {
+            const day = getDayData(dateKey);
+            if (isWeekend(dateKey)) {
+                return { ...day, open: [], close: [] };
+            }
+            const hasManual = day.open.length > 0 || day.close.length > 0;
+            if (hasManual) {
+                return { ...day, open: day.open.slice(), close: day.close.slice() };
+            }
+            const rot = getRotationForDate(dateKey);
+            return { ...day, open: rot.open, close: rot.close };
+        }
+
+        function normalizeDayData(day) {
+            const safeDay = day && typeof day === "object" ? day : {};
+            return {
+                open: Array.isArray(safeDay.open) ? uniqueNames(safeDay.open) : [],
+                close: Array.isArray(safeDay.close) ? uniqueNames(safeDay.close) : [],
+                statusEntries: Array.isArray(safeDay.statusEntries)
+                    ? safeDay.statusEntries
+                        .map(item => ({
+                            name: String(item.name || "").trim(),
+                            type: STATUS_OPTIONS.includes(item.type) ? item.type : "기타"
+                        }))
+                        .filter(item => item.name)
+                    : [],
+                substitutes: Array.isArray(safeDay.substitutes)
+                    ? safeDay.substitutes
+                        .map(item => ({
+                            target: String(item.target || "").trim(),
+                            substitute: String(item.substitute || "").trim(),
+                            role: item.role === "close" ? "close" : "open",
+                            startDate: isDateKey(item.startDate) ? item.startDate : "",
+                            endDate: isDateKey(item.endDate) ? item.endDate : ""
+                        }))
+                        .filter(item => item.target && item.substitute && item.startDate && item.endDate)
+                    : [],
+                memo: typeof safeDay.memo === "string" ? safeDay.memo : ""
+            };
+        }
+
+        function bindEvents() {
+            document.getElementById("btnTheme").addEventListener("click", () => {
+                const isDark = document.documentElement.classList.toggle("dark");
+                Storage.set(Storage.keyTheme, isDark ? "dark" : "light");
+            });
+
+            document.querySelectorAll(".tab-btn").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    activeTab = btn.dataset.tab;
+                    Storage.set(Storage.keyTab, activeTab);
+                    renderTabs();
+                });
+            });
+
+            document.getElementById("btnAddMember").addEventListener("click", () => {
+                document.getElementById("newMemberName").value = "";
+                document.getElementById("addMemberModal").style.display = "flex";
+            });
+            document.getElementById("btnAddMemberCancel").addEventListener("click", () => {
+                document.getElementById("addMemberModal").style.display = "none";
+            });
+            document.getElementById("btnAddMemberOk").addEventListener("click", () => {
+                const name = document.getElementById("newMemberName").value.trim();
+                if (!name) {
+                    alert("이름을 입력해주세요.");
+                    return;
+                }
+                if (roster.some(p => p.name === name)) {
+                    alert("이미 있는 이름입니다.");
+                    return;
+                }
+                roster.push({ name, on: true, note: "지각" });
+                roster.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+                Storage.set(Storage.keyRoster, roster);
+                document.getElementById("addMemberModal").style.display = "none";
+                renderRoster();
+                updateStatus();
+                renderScheduleTab();
+            });
+
+            document.getElementById("btnMix").addEventListener("click", mixSeats);
+            document.getElementById("btnReset").addEventListener("click", resetSeats);
+            document.getElementById("btnHardReset").addEventListener("click", () => {
+                if (confirm("저장된 데이터 전체를 초기화하시겠습니까?")) {
+                    Storage.clear();
+                    location.reload();
+                }
+            });
+
+            document.getElementById("toggleSimpleMode").addEventListener("change", e => {
+                isSimpleMode = e.target.checked;
+                Storage.set(Storage.keyMode, isSimpleMode);
+                renderRoster();
+                updateStatus();
+            });
+
+            SEAT_IDS.forEach(id => {
+                const seatEl = document.getElementById("s" + id);
+                if (seatEl) {
+                    seatEl.addEventListener("click", () => toggleSeatLock(id));
+                }
+            });
+            document.getElementById("cafeSeat1").addEventListener("click", () => openCafeSeatModal(0));
+            document.getElementById("cafeSeat2").addEventListener("click", () => openCafeSeatModal(1));
+            document.getElementById("cafeSeatModalClose").addEventListener("click", () => {
+                document.getElementById("cafeSeatModal").style.display = "none";
+            });
+            document.getElementById("cafeSeatModal").addEventListener("click", e => {
+                if (e.target.id === "cafeSeatModal") e.currentTarget.style.display = "none";
+            });
+
+            document.getElementById("rosterList").addEventListener("change", e => {
+                const target = e.target;
+                const idx = Number(target.getAttribute("data-idx"));
+                if (Number.isNaN(idx)) {
+                    return;
+                }
+
+                if (target.type === "checkbox") {
+                    roster[idx].on = target.checked;
+                } else if (target.tagName === "SELECT") {
+                    roster[idx].note = target.value;
+                }
+
+                renderRoster();
+                updateStatus();
+                renderScheduleTab();
+            });
+
+            const modal = document.getElementById("editModal");
+            const input = document.getElementById("editInput");
+
+            document.getElementById("btnEdit").addEventListener("click", () => {
+                input.value = roster.map(p => p.name).join("\n");
+                modal.style.display = "flex";
+            });
+
+            document.getElementById("btnCancel").addEventListener("click", () => {
+                modal.style.display = "none";
+            });
+
+            document.getElementById("btnSave").addEventListener("click", () => {
+                const newNames = input.value
+                    .split("\n")
+                    .map(name => name.trim())
+                    .filter(Boolean);
+
+                if (newNames.length === 0) {
+                    alert("명단을 입력해주세요.");
+                    return;
+                }
+
+                const sortedNames = [...new Set(newNames)].sort((a, b) => a.localeCompare(b, "ko"));
+                roster = sortedNames.map(name => {
+                    const existing = roster.find(person => person.name === name);
+                    return existing || { name, on: true, note: "지각" };
+                });
+
+                Storage.set(Storage.keyRoster, roster);
+                modal.style.display = "none";
+                renderRoster();
+                updateStatus();
+                renderScheduleTab();
+            });
+
+            modal.addEventListener("click", e => {
+                if (e.target === modal) {
+                    modal.style.display = "none";
+                }
+            });
+            document.getElementById("addMemberModal").addEventListener("click", e => {
+                if (e.target.id === "addMemberModal") {
+                    e.currentTarget.style.display = "none";
+                }
+            });
+
+            document.getElementById("btnShare").addEventListener("click", shareSeatImage);
+
+            document.getElementById("btnPrevMonth").addEventListener("click", () => moveMonth(-1));
+            document.getElementById("btnNextMonth").addEventListener("click", () => moveMonth(1));
+
+            document.addEventListener("change", e => {
+                if (e.target.id === "rotationStartDate") {
+                    const v = e.target.value;
+                    if (isDateKey(v)) {
+                        const [y, m, d] = v.split("-").map(Number);
+                        const date = new Date(y, m - 1, d);
+                        const day = date.getDay();
+                        const diff = day === 0 ? 6 : day - 1;
+                        date.setDate(date.getDate() - diff);
+                        scheduleState.rotationStartMonday = formatDateKey(date);
+                        saveSchedule();
+                        renderScheduleTab();
+                    }
+                }
+            });
+
+            document.getElementById("calendarGrid").addEventListener("click", e => {
+                const dayButton = e.target.closest("[data-date]");
+                if (!dayButton) {
+                    return;
+                }
+
+                scheduleState.selectedDate = dayButton.dataset.date;
+                if (!scheduleState.selectedDate.startsWith(scheduleState.currentMonth)) {
+                    scheduleState.currentMonth = scheduleState.selectedDate.slice(0, 7);
+                }
+                saveSchedule();
+                renderScheduleTab();
+
+                const subs = getEffectiveSubstitutesForDate(scheduleState.selectedDate);
+                if (subs.length > 0) {
+                    document.getElementById("substitutePopupTitle").textContent = `${formatDateKorean(scheduleState.selectedDate)} 대타 현황`;
+                    const dayDataForRole = getDisplayDayData(scheduleState.selectedDate);
+                    document.getElementById("substitutePopupBody").innerHTML = subs.map(entry => {
+                        const targetRole = dayDataForRole.open.includes(entry.target) ? "오픈조" : (dayDataForRole.close.includes(entry.target) ? "마감조" : null);
+                        const targetRoleText = targetRole ? ` (당일 ${targetRole})` : "";
+                        const subRoleText = entry.role === "open" ? "오픈조" : "마감조";
+                        return `<div class="substitute-popup-item"><strong>${escapeHtml(entry.target)}${targetRoleText} 부재 → ${escapeHtml(entry.substitute)} ${subRoleText} 대타</strong><span class="substitute-dates">${escapeHtml(entry.startDate)} ~ ${escapeHtml(entry.endDate)}</span></div>`;
+                    }).join("");
+                    document.getElementById("substitutePopupModal").style.display = "flex";
+                }
+            });
+            document.getElementById("substitutePopupClose").addEventListener("click", () => {
+                document.getElementById("substitutePopupModal").style.display = "none";
+            });
+            document.getElementById("substitutePopupModal").addEventListener("click", e => {
+                if (e.target.id === "substitutePopupModal") e.currentTarget.style.display = "none";
+            });
+
+            document.getElementById("scheduleDetail").addEventListener("click", e => {
+                const toggleBtn = e.target.closest("[data-role][data-name]");
+                if (toggleBtn) {
+                    const dateKey = scheduleState.selectedDate;
+                    const role = toggleBtn.dataset.role;
+                    const name = toggleBtn.dataset.name;
+                    toggleAssignment(dateKey, role, name);
+                    return;
+                }
+
+                const removeStatusBtn = e.target.closest("[data-remove-status]");
+                if (removeStatusBtn) {
+                    removeStatusEntry(Number(removeStatusBtn.dataset.removeStatus));
+                    return;
+                }
+
+                const removeSubstituteBtn = e.target.closest("[data-remove-substitute]");
+                if (removeSubstituteBtn) {
+                    removeSubstituteEntry(Number(removeSubstituteBtn.dataset.removeSubstitute));
+                }
+            });
+
+            document.getElementById("scheduleDetail").addEventListener("change", e => {
+                if (e.target.id === "statusType") {
+                    return;
+                }
+            });
+
+            document.getElementById("scheduleDetail").addEventListener("submit", e => {
+                e.preventDefault();
+            });
+
+            document.getElementById("dayMemo").addEventListener("input", e => {
+                updateDayData(scheduleState.selectedDate, day => {
+                    day.memo = e.target.value;
+                });
+                saveSchedule();
+            });
+        }
+
+        function renderApp() {
+            updateTodayBadge();
+            renderTabs();
             renderRoster();
             updateStatus();
             applySeatLocks();
-            bindEvents();
-        });
+            applyCafeSeats();
+            renderScheduleTab();
+        }
+
+        function applyCafeSeats() {
+            const el1 = document.getElementById("cafeSeat1");
+            const el2 = document.getElementById("cafeSeat2");
+            if (el1) {
+                const name = cafeSeatAssignments[0];
+                el1.querySelector(".seat-name").textContent = name || "카페팀";
+                el1.classList.toggle("assigned", !!name);
+            }
+            if (el2) {
+                const name = cafeSeatAssignments[1];
+                el2.querySelector(".seat-name").textContent = name || "카페팀";
+                el2.classList.toggle("assigned", !!name);
+            }
+        }
+
+        function openCafeSeatModal(index) {
+            cafeSeatEditingIndex = index;
+            document.getElementById("cafeSeatModalTitle").textContent = `카페팀 자리 ${index + 1} (손님 응대)`;
+            const picker = document.getElementById("cafeSeatPicker");
+            picker.innerHTML = CAFE_SCHEDULE_MEMBERS.map(name => `
+                <button type="button" class="member-pill ${cafeSeatAssignments[index] === name ? "active" : ""}" data-cafe-name="${escapeHtml(name)}">${escapeHtml(name)}</button>
+            `).join("") + `<button type="button" class="member-pill" data-cafe-name="">비움</button>`;
+            picker.querySelectorAll("[data-cafe-name]").forEach(btn => {
+                btn.addEventListener("click", () => {
+                    const val = btn.dataset.cafeName || null;
+                    cafeSeatAssignments[index] = val;
+                    Storage.set(Storage.keyCafeSeats, cafeSeatAssignments);
+                    applyCafeSeats();
+                    document.getElementById("cafeSeatModal").style.display = "none";
+                });
+            });
+            document.getElementById("cafeSeatModal").style.display = "flex";
+        }
+
+        function renderTabs() {
+            document.querySelectorAll(".tab-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.dataset.tab === activeTab);
+            });
+            document.getElementById("tabSeat").classList.toggle("active", activeTab === "seat");
+            document.getElementById("tabSchedule").classList.toggle("active", activeTab === "schedule");
+        }
 
         function renderRoster() {
-            const listEl = document.getElementById('rosterList');
-            const countEl = document.getElementById('countBadge');
-            
-            listEl.innerHTML = '';
+            const listEl = document.getElementById("rosterList");
+            const countEl = document.getElementById("countBadge");
+            const simpleModeToggle = document.getElementById("toggleSimpleMode");
+            simpleModeToggle.checked = isSimpleMode;
+
+            listEl.innerHTML = "";
             let onCount = 0;
 
-            roster.forEach((p, idx) => {
-                if (p.on) onCount++;
-                const item = document.createElement('div');
-                item.className = `roster-item ${p.on ? '' : 'absent'}`;
-                
-                // 간편 모드일 경우 select 박스 숨김 처리
-                const selectDisplay = isSimpleMode ? 'none' : (p.on ? 'none' : 'block');
+            roster.forEach((person, idx) => {
+                if (person.on) {
+                    onCount += 1;
+                }
+
+                const item = document.createElement("div");
+                item.className = `roster-item ${person.on ? "" : "absent"}`;
+
+                const selectDisplay = isSimpleMode ? "none" : (person.on ? "none" : "block");
 
                 item.innerHTML = `
                     <label class="switch">
-                        <input type="checkbox" ${p.on ? 'checked' : ''} data-idx="${idx}">
+                        <input type="checkbox" ${person.on ? "checked" : ""} data-idx="${idx}">
                         <span class="slider"></span>
                     </label>
-                    <span class="name-text" style="opacity:${p.on ? 1 : 0.5}">${p.name}</span>
+                    <span class="name-text" style="opacity:${person.on ? 1 : 0.55}">${escapeHtml(person.name)}</span>
                     <select class="reason-select" style="display:${selectDisplay}" data-idx="${idx}">
-                        <option value="지각" ${p.note==='지각'?'selected':''}>지각</option>
-                        <option value="병가" ${p.note==='병가'?'selected':''}>병가</option>
-                        <option value="월차" ${p.note==='월차'?'selected':''}>월차</option>
-                        <option value="반차" ${p.note==='반차'?'selected':''}>반차</option>
-                        <option value="기타" ${p.note==='기타'?'selected':''}>기타</option>
+                        ${STATUS_OPTIONS.map(option => `<option value="${escapeHtml(option)}" ${person.note === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
                     </select>
                 `;
+
                 listEl.appendChild(item);
             });
 
@@ -398,142 +1995,85 @@
         }
 
         function updateStatus() {
-            const absents = roster.filter(p => !p.on);
-            const msgEl = document.getElementById('statusMsg');
-            
+            const absents = roster.filter(person => !person.on);
+            const msgEl = document.getElementById("statusMsg");
+
             if (absents.length === 0) {
-                msgEl.innerHTML = `✅ <b>전원 출석 완료!</b>`;
-            } else {
-                // [수정됨] 간편 모드일 때는 상단 불참자 명단 숨김 (기본 메시지 출력)
-                if (isSimpleMode) {
-                     msgEl.innerHTML = `오늘도 파이팅! ☀️ (불참 ${absents.length}명)`;
-                } else {
-                    const text = absents.map(p => 
-                        `<span style="background:#fee2e2; color:#b91c1c; padding:2px 5px; border-radius:4px; font-size:12px; margin-right:4px;">${p.note}</span>${p.name}`
-                    ).join('&nbsp;&nbsp;');
-                    msgEl.innerHTML = `📢 <b>불참:</b> ${text}`;
-                }
+                msgEl.innerHTML = "전원 출석 완료";
+                return;
             }
+
+            if (isSimpleMode) {
+                const names = absents.map(p => escapeHtml(p.name)).join(", ");
+                msgEl.innerHTML = `불참 ${absents.length}명: ${names || ""}`;
+                return;
+            }
+
+            const text = absents
+                .map(person => `<span class="${getStatusBadgeClass(person.note)} inline-badge">${escapeHtml(person.note)}</span>${escapeHtml(person.name)}`)
+                .join("&nbsp;&nbsp;");
+            msgEl.innerHTML = `<b>불참:</b> ${text}`;
         }
 
-        function bindEvents() {
-            document.getElementById('btnMix').addEventListener('click', mixSeats);
-            document.getElementById('btnReset').addEventListener('click', resetSeats);
-            document.getElementById('btnHardReset').addEventListener('click', () => {
-                if(confirm('데이터를 초기화하시겠습니까?')) {
-                    Storage.clear();
-                    location.reload();
-                }
-            });
+        function updateTodayBadge() {
+            const now = new Date();
+            document.getElementById("todayBadge").textContent = `${now.getMonth() + 1}월 ${now.getDate()}일 ${["일", "월", "화", "수", "목", "금", "토"][now.getDay()]}요일`;
+        }
 
-            // 간편 모드 토글 이벤트
-            document.getElementById('toggleSimpleMode').addEventListener('change', (e) => {
-                isSimpleMode = e.target.checked;
-                Storage.set(Storage.keyMode, isSimpleMode); // 설정 저장
-                renderRoster(); // 다시 그리기 (select 박스 숨김/표시)
-                updateStatus(); // 상태창 업데이트
-            });
+        async function shareSeatImage() {
+            const captureTarget = document.getElementById("captureArea");
+            const btn = document.getElementById("btnShare");
+            const originalText = btn.innerHTML;
+            btn.innerText = "이미지 생성 중...";
 
-            SEAT_IDS.forEach(id => {
-                const seatEl = document.getElementById('s' + id);
-                if(seatEl) {
-                    seatEl.addEventListener('click', () => toggleSeatLock(id));
-                }
-            });
-
-            const listEl = document.getElementById('rosterList');
-            listEl.addEventListener('change', (e) => {
-                const target = e.target;
-                const idx = target.getAttribute('data-idx');
-                if (idx !== null) {
-                    if (target.type === 'checkbox') {
-                        roster[idx].on = target.checked;
-                    } else if (target.tagName === 'SELECT') {
-                        roster[idx].note = target.value;
-                    }
-                    renderRoster();
-                    updateStatus();
-                }
-            });
-
-            const modal = document.getElementById('editModal');
-            const input = document.getElementById('editInput');
-            document.getElementById('btnEdit').addEventListener('click', () => {
-                input.value = roster.map(p => p.name).join('\n');
-                modal.style.display = 'flex';
-            });
-            document.getElementById('btnCancel').addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-            document.getElementById('btnSave').addEventListener('click', () => {
-                const txt = input.value;
-                const newNames = txt.split('\n').map(n => n.trim()).filter(n => n !== "");
-                if (newNames.length === 0) return alert('명단을 입력해주세요.');
-                newNames.sort(); 
-                const newRoster = newNames.map(name => {
-                    const exist = roster.find(p => p.name === name);
-                    return exist ? exist : { name: name, on: true, note: '지각' };
+            try {
+                const canvas = await html2canvas(captureTarget, {
+                    scale: 2,
+                    backgroundColor: "#f1f5f9"
                 });
-                roster = newRoster;
-                renderRoster();
-                updateStatus();
-                modal.style.display = 'none';
-            });
 
-            document.getElementById('btnShare').addEventListener('click', async () => {
-                const captureTarget = document.getElementById('captureArea');
-                const btn = document.getElementById('btnShare');
-                const originalText = btn.innerHTML;
-                btn.innerText = "이미지 생성 중...";
-
-                try {
-                    const canvas = await html2canvas(captureTarget, {
-                        scale: 2,
-                        backgroundColor: "#f1f5f9"
-                    });
-
-                    canvas.toBlob(async (blob) => {
-                        if (!blob) {
-                            alert('이미지 생성 실패');
-                            return;
-                        }
-
-                        const file = new File([blob], "seat_arrangement.png", { type: "image/png" });
-
-                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                            try {
-                                await navigator.share({
-                                    files: [file],
-                                    title: '오늘의 자리 배치',
-                                    text: '오늘의 자리 배치 현황입니다.'
-                                });
-                            } catch (err) {
-                                if (err.name !== 'AbortError') {
-                                    console.error(err);
-                                    alert('공유 중 오류가 발생했습니다.');
-                                }
-                            }
-                        } else {
-                            const link = document.createElement('a');
-                            link.download = '자리배치.png';
-                            link.href = canvas.toDataURL();
-                            link.click();
-                            alert('이미지가 갤러리(다운로드 폴더)에 저장되었습니다. 카톡에서 사진을 전송해주세요.');
-                        }
+                canvas.toBlob(async blob => {
+                    if (!blob) {
+                        alert("이미지 생성 실패");
                         btn.innerHTML = originalText;
-                    });
+                        return;
+                    }
 
-                } catch (err) {
-                    console.error(err);
-                    alert('이미지 생성에 실패했습니다.');
+                    const file = new File([blob], "seat_arrangement.png", { type: "image/png" });
+
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({
+                                files: [file],
+                                title: "오늘의 자리 배치",
+                                text: "오늘의 자리 배치 현황입니다."
+                            });
+                        } catch (err) {
+                            if (err.name !== "AbortError") {
+                                console.error(err);
+                                alert("공유 중 오류가 발생했습니다.");
+                            }
+                        }
+                    } else {
+                        const link = document.createElement("a");
+                        link.download = "자리배치.png";
+                        link.href = canvas.toDataURL();
+                        link.click();
+                        alert("이미지가 다운로드되었습니다. 카톡에서 사진을 전송해주세요.");
+                    }
+
                     btn.innerHTML = originalText;
-                }
-            });
+                });
+            } catch (err) {
+                console.error(err);
+                alert("이미지 생성에 실패했습니다.");
+                btn.innerHTML = originalText;
+            }
         }
 
         function toggleSeatLock(id) {
             const idx = disabledSeats.indexOf(id);
-            if(idx > -1) {
+            if (idx > -1) {
                 disabledSeats.splice(idx, 1);
             } else {
                 disabledSeats.push(id);
@@ -544,36 +2084,49 @@
 
         function applySeatLocks() {
             SEAT_IDS.forEach(id => {
-                const el = document.getElementById('s' + id);
-                if(el) {
-                    if(disabledSeats.includes(id)) {
-                        el.classList.add('disabled');
-                        el.classList.remove('assigned');
-                        el.querySelector('.seat-name').innerText = "";
-                    } else {
-                        el.classList.remove('disabled');
-                    }
+                const el = document.getElementById("s" + id);
+                if (!el) {
+                    return;
+                }
+
+                if (disabledSeats.includes(id)) {
+                    el.classList.add("disabled");
+                    el.classList.remove("assigned");
+                    el.querySelector(".seat-name").innerText = "";
+                    el.title = "자리 " + id + "번 사용 안 함. 터치하면 사용 가능으로 전환";
+                    el.setAttribute("aria-label", "자리 " + id + "번 사용 안 함");
+                } else {
+                    el.classList.remove("disabled");
+                    el.title = "자리 " + id + "번. 터치하면 사용 안 함으로 잠금";
+                    el.setAttribute("aria-label", "자리 " + id + "번");
                 }
             });
         }
 
         function mixSeats() {
-            const attendees = roster.filter(p => p.on).map(p => p.name);
+            const allAttendees = roster.filter(person => person.on).map(person => person.name);
+            const cafeAssigned = cafeSeatAssignments.filter(Boolean);
+            const attendees = allAttendees.filter(name => !cafeAssigned.includes(name));
             const availableSeats = SEAT_IDS.filter(id => !disabledSeats.includes(id));
 
-            if (attendees.length === 0) return alert('출석한 사람이 없습니다.');
+            if (allAttendees.length === 0) {
+                alert("출석한 사람이 없습니다.");
+                return;
+            }
+
             if (attendees.length > availableSeats.length) {
-                return alert(`자리가 부족합니다!\n- 출석 인원: ${attendees.length}명\n- 사용 가능 좌석: ${availableSeats.length}개\n\n❌ 표시된 자리를 눌러서 잠금을 해제해주세요.`);
+                alert(`자리가 부족합니다.\n- 숫자 자리 배치 인원: ${attendees.length}명${cafeAssigned.length ? ` (카페팀 자리 ${cafeAssigned.length}명 제외)` : ""}\n- 사용 가능 좌석: ${availableSeats.length}개\n\n사용 안 함 표시된 자리를 눌러 잠금을 해제하거나, 카페팀 자리에 인원을 배치해 주세요.`);
+                return;
             }
 
             resetSeatNames();
 
-            let pool = [...attendees];
+            const pool = [...attendees];
             while (pool.length < availableSeats.length) {
                 pool.push(null);
             }
 
-            for (let i = pool.length - 1; i > 0; i--) {
+            for (let i = pool.length - 1; i > 0; i -= 1) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [pool[i], pool[j]] = [pool[j], pool[i]];
             }
@@ -581,25 +2134,39 @@
             let delay = 0;
             availableSeats.forEach((seatId, idx) => {
                 const name = pool[idx];
-                if (name) {
-                    setTimeout(() => {
-                        const el = document.getElementById('s' + seatId);
-                        if (el) {
-                            el.querySelector('.seat-name').innerText = name;
-                            el.classList.add('assigned');
-                        }
-                    }, delay);
-                    delay += 50;
+                if (!name) {
+                    return;
                 }
+
+                setTimeout(() => {
+                    const el = document.getElementById("s" + seatId);
+                    if (el) {
+                        el.querySelector(".seat-name").innerText = name;
+                        el.classList.add("assigned");
+                    }
+                }, delay);
+                delay += 50;
             });
+            showToast("자리 배치 완료");
+        }
+
+        function showToast(message) {
+            const el = document.getElementById("toast");
+            if (!el) return;
+            el.textContent = message;
+            el.classList.add("show");
+            clearTimeout(showToast._tid);
+            showToast._tid = setTimeout(() => {
+                el.classList.remove("show");
+            }, 2000);
         }
 
         function resetSeatNames() {
             SEAT_IDS.forEach(id => {
-                const el = document.getElementById('s' + id);
+                const el = document.getElementById("s" + id);
                 if (el && !disabledSeats.includes(id)) {
-                    el.classList.remove('assigned');
-                    el.querySelector('.seat-name').innerText = "";
+                    el.classList.remove("assigned");
+                    el.querySelector(".seat-name").innerText = "";
                 }
             });
         }
@@ -607,6 +2174,459 @@
         function resetSeats() {
             resetSeatNames();
         }
+
+        function renderScheduleTab() {
+            if (isWeekend(scheduleState.selectedDate)) {
+                scheduleState.selectedDate = toNearestWeekday(scheduleState.selectedDate);
+                saveSchedule();
+            }
+            const rotInput = document.getElementById("rotationStartDate");
+            if (rotInput) {
+                rotInput.value = scheduleState.rotationStartMonday || getThisWeekMondayKey();
+            }
+            renderScheduleHighlight();
+            renderCalendar();
+            renderDayDetail();
+            document.getElementById("dayMemo").value = getDayData(scheduleState.selectedDate).memo;
+        }
+
+        function renderScheduleHighlight() {
+            const selectedDate = scheduleState.selectedDate;
+            const dayData = getDisplayDayData(selectedDate);
+            const substitutes = getEffectiveSubstitutesForDate(selectedDate);
+            const monthDates = getDatesForMonth(scheduleState.currentMonth);
+            const statusCount = monthDates.reduce((sum, dateKey) => sum + getDayData(dateKey).statusEntries.length, 0);
+            const substituteCount = getSubstitutesForMonth(scheduleState.currentMonth).length;
+            const statusLines = dayData.statusEntries.length > 0
+                ? dayData.statusEntries.map(e => `${e.name} ${e.type}`).join(", ")
+                : "없음";
+
+            document.getElementById("scheduleHighlight").innerHTML = `
+                <div class="stat-tile">
+                    <span class="stat-label">선택 날짜 오픈조</span>
+                    <div class="stat-value">${escapeHtml(formatPeople(dayData.open))}</div>
+                </div>
+                <div class="stat-tile">
+                    <span class="stat-label">선택 날짜 마감조</span>
+                    <div class="stat-value">${escapeHtml(formatPeople(dayData.close))}</div>
+                </div>
+                <div class="stat-tile">
+                    <span class="stat-label">선택 날짜 근태</span>
+                    <div class="stat-value stat-value--status">${escapeHtml(statusLines)}</div>
+                </div>
+                <div class="stat-tile">
+                    <span class="stat-label">이번 달 근태 / 대타</span>
+                    <div class="stat-value">${statusCount}건 / ${substituteCount}건</div>
+                </div>
+            `;
+        }
+
+        function renderCalendar() {
+            const monthDate = parseMonthKey(scheduleState.currentMonth);
+            const y = monthDate.getFullYear();
+            const m = monthDate.getMonth();
+            const calendarGrid = document.getElementById("calendarGrid");
+            const monthLabel = document.getElementById("monthLabel");
+            const monthSubtext = document.getElementById("monthSubtext");
+
+            monthLabel.textContent = `${y}년 ${m + 1}월`;
+            monthSubtext.textContent = "평일(월~금) 기준. 날짜를 누르면 오픈/마감·근태·대타를 수정할 수 있습니다.";
+            calendarGrid.innerHTML = "";
+
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            const todayKey = formatDateKey(new Date());
+            let firstWeekdayCol = -1;
+
+            for (let day = 1; day <= daysInMonth; day += 1) {
+                const date = new Date(y, m, day);
+                const w = date.getDay();
+                if (w >= 1 && w <= 5) {
+                    if (firstWeekdayCol === -1) {
+                        firstWeekdayCol = w - 1;
+                        for (let i = 0; i < firstWeekdayCol; i += 1) {
+                            const empty = document.createElement("div");
+                            empty.className = "calendar-day empty";
+                            calendarGrid.appendChild(empty);
+                        }
+                    }
+                    const dateKey = formatDateKey(date);
+                    const dayData = getDisplayDayData(dateKey);
+                    const substitutes = getEffectiveSubstitutesForDate(dateKey);
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "calendar-day";
+                    if (dateKey === todayKey) {
+                        button.classList.add("today");
+                    }
+                    if (dateKey === scheduleState.selectedDate) {
+                        button.classList.add("selected");
+                    }
+                    button.dataset.date = dateKey;
+
+                    const chips = [];
+                    if (dayData.open.length > 0) {
+                        chips.push(`<span class="summary-chip chip-open"><span class="chip-label-row">오픈</span><span class="chip-names-row">${dayData.open.join(", ")}</span></span>`);
+                    }
+                    if (dayData.close.length > 0) {
+                        chips.push(`<span class="summary-chip chip-close"><span class="chip-label-row">마감</span><span class="chip-names-row">${dayData.close.join(", ")}</span></span>`);
+                    }
+                    dayData.statusEntries.forEach(entry => {
+                        chips.push(`<span class="summary-chip chip-status chip-status--named">${escapeHtml(entry.type)} ${escapeHtml(entry.name)}</span>`);
+                    });
+                    if (substitutes.length > 0) {
+                        chips.push(`<span class="summary-chip chip-substitute">대타 ${substitutes.length}</span>`);
+                    }
+
+                    button.innerHTML = `
+                        <div class="calendar-day-number">${day}</div>
+                        <div class="calendar-summary">${chips.join("")}</div>
+                    `;
+                    calendarGrid.appendChild(button);
+                }
+            }
+        }
+
+        function renderDayDetail() {
+            const dateKey = scheduleState.selectedDate;
+            const dayData = getDisplayDayData(dateKey);
+            const effectiveSubstitutes = getEffectiveSubstitutesForDate(dateKey);
+            const names = CAFE_SCHEDULE_MEMBERS;
+
+            document.getElementById("selectedDateTitle").textContent = formatDateKorean(dateKey);
+            document.getElementById("selectedDateSubtext").textContent = "오픈조와 마감조는 여러 명 선택 가능. 평일(월~금)만 근무일입니다.";
+
+            document.getElementById("scheduleDetail").innerHTML = `
+                <div class="detail-block">
+                    <h4>오픈조 선택</h4>
+                    <div class="pill-grid">
+                        ${names.map(name => `
+                            <button type="button" class="member-pill ${dayData.open.includes(name) ? "active" : ""}" data-role="open" data-name="${escapeHtml(name)}">
+                                ${escapeHtml(name)}
+                            </button>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <div class="detail-block">
+                    <h4>마감조 선택</h4>
+                    <div class="pill-grid">
+                        ${names.map(name => `
+                            <button type="button" class="member-pill ${dayData.close.includes(name) ? "active" : ""}" data-role="close" data-name="${escapeHtml(name)}">
+                                ${escapeHtml(name)}
+                            </button>
+                        `).join("")}
+                    </div>
+                </div>
+
+                <div class="detail-block">
+                    <h4>근태 등록</h4>
+                    <div class="stack-list" style="margin-bottom:12px;">
+                        ${dayData.statusEntries.length > 0 ? dayData.statusEntries.map((entry, idx) => `
+                            <div class="list-item">
+                                <div>
+                                    <strong>${escapeHtml(entry.name)}</strong>
+                                    <span><span class="${getStatusBadgeClass(entry.type)} inline-badge">${escapeHtml(entry.type)}</span>선택한 날짜에 적용</span>
+                                </div>
+                                <button type="button" class="icon-btn" data-remove-status="${idx}">삭제</button>
+                            </div>
+                        `).join("") : `<div class="muted-note">등록된 근태 정보가 없습니다.</div>`}
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-row two-cols">
+                            <div>
+                                <label class="field-label" for="statusName">직원</label>
+                                <select id="statusName" class="field">
+                                    ${names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label" for="statusType">상태</label>
+                                <select id="statusType" class="field">
+                                    ${STATUS_OPTIONS.map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("")}
+                                </select>
+                            </div>
+                        </div>
+                        <button type="button" id="btnAddStatus" class="btn btn-add">근태 추가</button>
+                    </div>
+                </div>
+
+                <div class="detail-block">
+                    <h4>대타 등록</h4>
+                    <p class="section-desc" style="margin-top:0; margin-bottom:12px;">대상자(부재인)는 대타자 선택 시 목록에서 자동 제외됩니다.</p>
+                    <div class="stack-list" style="margin-bottom:12px;">
+                        ${effectiveSubstitutes.length > 0 ? effectiveSubstitutes.map(entry => {
+                            const dayDataForRole = getDisplayDayData(dateKey);
+                            const targetRole = dayDataForRole.open.includes(entry.target) ? "오픈조" : (dayDataForRole.close.includes(entry.target) ? "마감조" : null);
+                            const targetRoleText = targetRole ? `당일 ${targetRole}` : "";
+                            const subRoleText = entry.role === "open" ? "오픈조" : "마감조";
+                            return `
+                            <div class="list-item list-item--substitute">
+                                <div>
+                                    <strong>${escapeHtml(entry.target)}${targetRoleText ? ` (${targetRoleText})` : ""} 부재 → ${escapeHtml(entry.substitute)} <span class="badge-substitute inline-badge">${subRoleText}</span> 대타</strong>
+                                    <span class="substitute-dates">${escapeHtml(entry.startDate)} ~ ${escapeHtml(entry.endDate)}</span>
+                                </div>
+                                ${entry.sourceDate === dateKey
+                                    ? `<button type="button" class="icon-btn" data-remove-substitute="${entry.sourceIndex}">삭제</button>`
+                                    : `<span class="small-badge">기간 적용</span>`}
+                            </div>
+                        `;
+                        }).join("") : `<div class="muted-note">등록된 대타 정보가 없습니다.</div>`}
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-row two-cols">
+                            <div>
+                                <label class="field-label" for="subTarget">대상자 (부재인)</label>
+                                <select id="subTarget" class="field">
+                                    ${names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label" for="substituteName">대타자 (대신 근무)</label>
+                                <select id="substituteName" class="field">
+                                    ${names.map(name => `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`).join("")}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row two-cols">
+                            <div>
+                                <label class="field-label" for="subRole">근무 역할</label>
+                                <select id="subRole" class="field">
+                                    <option value="open">오픈조</option>
+                                    <option value="close">마감조</option>
+                                </select>
+                            </div>
+                            <div></div>
+                        </div>
+                        <div class="form-row two-cols">
+                            <div>
+                                <label class="field-label" for="subStartDate">시작일</label>
+                                <input id="subStartDate" class="date-field" type="date" value="${dateKey}">
+                            </div>
+                            <div>
+                                <label class="field-label" for="subEndDate">종료일</label>
+                                <input id="subEndDate" class="date-field" type="date" value="${dateKey}">
+                            </div>
+                        </div>
+                        <button type="button" id="btnAddSubstitute" class="btn btn-add">대타 추가</button>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById("btnAddStatus").addEventListener("click", addStatusEntry);
+            document.getElementById("btnAddSubstitute").addEventListener("click", addSubstituteEntry);
+
+            const subTargetEl = document.getElementById("subTarget");
+            const substituteNameEl = document.getElementById("substituteName");
+            function filterSubTargetOptions() {
+                const substituteVal = substituteNameEl.value;
+                Array.from(subTargetEl.options).forEach(opt => {
+                    opt.disabled = opt.value === substituteVal;
+                    if (opt.disabled && subTargetEl.value === substituteVal) {
+                        const other = Array.from(subTargetEl.options).find(o => !o.disabled);
+                        if (other) subTargetEl.value = other.value;
+                    }
+                });
+            }
+            substituteNameEl.addEventListener("change", filterSubTargetOptions);
+            filterSubTargetOptions();
+        }
+
+        function moveMonth(offset) {
+            const current = parseMonthKey(scheduleState.currentMonth);
+            const next = new Date(current.getFullYear(), current.getMonth() + offset, 1);
+            scheduleState.currentMonth = formatMonthKey(next);
+
+            if (!scheduleState.selectedDate.startsWith(scheduleState.currentMonth)) {
+                scheduleState.selectedDate = `${scheduleState.currentMonth}-01`;
+            }
+
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function addStatusEntry() {
+            const name = document.getElementById("statusName").value;
+            const type = document.getElementById("statusType").value;
+
+            if (!name || !type) {
+                return;
+            }
+
+            updateDayData(scheduleState.selectedDate, day => {
+                day.statusEntries.push({ name, type });
+            });
+
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function removeStatusEntry(index) {
+            updateDayData(scheduleState.selectedDate, day => {
+                day.statusEntries.splice(index, 1);
+            });
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function addSubstituteEntry() {
+            const target = document.getElementById("subTarget").value;
+            const substitute = document.getElementById("substituteName").value;
+            const role = document.getElementById("subRole").value;
+            const startDate = document.getElementById("subStartDate").value;
+            const endDate = document.getElementById("subEndDate").value;
+
+            if (!target || !substitute || !startDate || !endDate) {
+                alert("대타 정보를 모두 입력해주세요.");
+                return;
+            }
+
+            if (startDate > endDate) {
+                alert("종료일은 시작일보다 빠를 수 없습니다.");
+                return;
+            }
+
+            updateDayData(scheduleState.selectedDate, day => {
+                day.substitutes.push({ target, substitute, role, startDate, endDate });
+            });
+
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function removeSubstituteEntry(index) {
+            updateDayData(scheduleState.selectedDate, day => {
+                day.substitutes.splice(index, 1);
+            });
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function toggleAssignment(dateKey, role, name) {
+            updateDayData(dateKey, day => {
+                const key = role === "close" ? "close" : "open";
+                const list = day[key];
+                const index = list.indexOf(name);
+                if (index > -1) {
+                    list.splice(index, 1);
+                } else {
+                    list.push(name);
+                    list.sort((a, b) => a.localeCompare(b, "ko"));
+                }
+            });
+
+            saveSchedule();
+            renderScheduleTab();
+        }
+
+        function updateDayData(dateKey, updater) {
+            const current = normalizeDayData(scheduleState.days[dateKey]);
+            updater(current);
+            scheduleState.days[dateKey] = normalizeDayData(current);
+        }
+
+        function getDayData(dateKey) {
+            if (!scheduleState.days[dateKey]) {
+                scheduleState.days[dateKey] = normalizeDayData({});
+            }
+            return scheduleState.days[dateKey];
+        }
+
+        function getEffectiveSubstitutesForDate(dateKey) {
+            const results = [];
+
+            // 기간 대타가 걸쳐 있을 때 해당 날짜에 보이도록 전체 일정을 순회합니다.
+            Object.entries(scheduleState.days).forEach(([sourceDate, day]) => {
+                normalizeDayData(day).substitutes.forEach((entry, sourceIndex) => {
+                    if (entry.startDate <= dateKey && entry.endDate >= dateKey) {
+                        results.push({ ...entry, sourceDate, sourceIndex });
+                    }
+                });
+            });
+
+            return results.sort((a, b) => a.startDate.localeCompare(b.startDate, "ko"));
+        }
+
+        function saveSchedule() {
+            Storage.set(Storage.keySchedule, scheduleState);
+        }
+
+        function getSubstitutesForMonth(monthKey) {
+            const monthStart = `${monthKey}-01`;
+            const monthDates = getDatesForMonth(monthKey);
+            const monthEnd = monthDates[monthDates.length - 1];
+            const results = [];
+
+            Object.values(scheduleState.days).forEach(day => {
+                normalizeDayData(day).substitutes.forEach(entry => {
+                    if (entry.startDate <= monthEnd && entry.endDate >= monthStart) {
+                        results.push(entry);
+                    }
+                });
+            });
+
+            return results;
+        }
+
+        function getMemberNames() {
+            return uniqueNames(roster.map(person => person.name)).sort((a, b) => a.localeCompare(b, "ko"));
+        }
+
+        function uniqueNames(list) {
+            return [...new Set(list.map(item => String(item).trim()).filter(Boolean))];
+        }
+
+        function formatPeople(list) {
+            return list.length > 0 ? list.join(", ") : "미정";
+        }
+
+        function getStatusBadgeClass(type) {
+            if (type === "지각") {
+                return "badge-late";
+            }
+            if (type === "결근" || type === "병가" || type === "기타") {
+                return "badge-absence";
+            }
+            return "badge-leave";
+        }
+
+        function formatMonthKey(date) {
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        }
+
+        function formatDateKey(date) {
+            return `${formatMonthKey(date)}-${String(date.getDate()).padStart(2, "0")}`;
+        }
+
+        function parseMonthKey(monthKey) {
+            const [year, month] = monthKey.split("-").map(Number);
+            return new Date(year, month - 1, 1);
+        }
+
+        function isDateKey(value) {
+            return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+        }
+
+        function formatDateKorean(dateKey) {
+            const [year, month, day] = dateKey.split("-").map(Number);
+            const date = new Date(year, month - 1, day);
+            const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+            return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 ${weekdays[date.getDay()]}요일`;
+        }
+
+        function getDatesForMonth(monthKey) {
+            const base = parseMonthKey(monthKey);
+            const daysInMonth = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+            const dates = [];
+
+            for (let day = 1; day <= daysInMonth; day += 1) {
+                dates.push(formatDateKey(new Date(base.getFullYear(), base.getMonth(), day)));
+            }
+
+            return dates;
+        }
     </script>
 </body>
 </html>
+
