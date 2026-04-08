@@ -1353,6 +1353,7 @@
                         <button type="button" id="btnApplyWorkerDefaults" class="btn-edit">기본 오픈/마감 오늘에 적용</button>
                         <button type="button" id="btnResetWorkerSettings" class="btn-edit">설정 초기화</button>
                     </div>
+                    <button type="button" id="btnClearFutureSchedule" class="btn-edit" style="width:100%; margin-top:8px; border-color:#fecaca; color:#b91c1c;">2026-05-01 이후 스케줄 일괄 정리</button>
                 </div>
             </div>
 
@@ -1530,6 +1531,7 @@
         let activeTab = "seat";
         let scheduleState = null;
         let workerSettings = null;
+        let isFutureScheduleCleared = false;
         let cafeSeatEditingIndex = 0;
 
         const Storage = {
@@ -1539,6 +1541,7 @@
             keyTab: "seat_app_active_tab_v1",
             keySchedule: "cafe_schedule_v1",
             keyWorkerSettings: "cafe_worker_settings_v1",
+            keyFutureScheduleCleared: "cafe_future_schedule_cleared_v1",
             keyTheme: "app_theme_v1",
             keyCafeSeats: "cafe_seats_v1",
             get(key) {
@@ -1592,6 +1595,7 @@
             scheduleState = normalizeSchedule(savedSchedule);
             const savedWorkerSettings = Storage.get(Storage.keyWorkerSettings);
             workerSettings = normalizeWorkerSettings(savedWorkerSettings);
+            isFutureScheduleCleared = Storage.get(Storage.keyFutureScheduleCleared) === true;
 
             const savedTheme = Storage.get(Storage.keyTheme);
             document.documentElement.classList.toggle("dark", savedTheme === "dark");
@@ -1959,6 +1963,7 @@
                 document.getElementById("dayEditorTitle").textContent = `${formatDateKorean(scheduleState.selectedDate)} 상세 편집`;
                 renderDayDetail();
                 document.getElementById("dayEditorModal").style.display = "flex";
+                document.getElementById("dayMemo").focus();
 
                 const subs = getEffectiveSubstitutesForDate(scheduleState.selectedDate);
                 if (subs.length > 0) {
@@ -1982,7 +1987,7 @@
             document.getElementById("btnToggleWorkerPanel").addEventListener("click", () => {
                 const panel = document.getElementById("workerPanelWrap");
                 const btn = document.getElementById("btnToggleWorkerPanel");
-                const nextOpen = panel.style.display === "none";
+                const nextOpen = panel.style.display === "none" || panel.style.display === "";
                 panel.style.display = nextOpen ? "block" : "none";
                 btn.textContent = nextOpen ? "근무자 관리 패널 닫기" : "근무자 관리 패널 열기";
             });
@@ -2031,6 +2036,23 @@
                 Storage.set(Storage.keyWorkerSettings, workerSettings);
                 renderScheduleTab();
                 showToast("근무자 설정을 초기화했습니다");
+            });
+            document.getElementById("btnClearFutureSchedule").addEventListener("click", () => {
+                if (!confirm("2026-05-01 이후 저장된 스케줄(오픈/마감/근태/대타/메모)을 모두 정리할까요?")) {
+                    return;
+                }
+                let removed = 0;
+                Object.keys(scheduleState.days).forEach(dateKey => {
+                    if (dateKey >= "2026-05-01") {
+                        delete scheduleState.days[dateKey];
+                        removed += 1;
+                    }
+                });
+                isFutureScheduleCleared = true;
+                Storage.set(Storage.keyFutureScheduleCleared, true);
+                saveSchedule();
+                renderScheduleTab();
+                showToast(`2026-05-01 이후 ${removed}건 정리 완료`);
             });
 
             document.getElementById("scheduleDetail").addEventListener("click", e => {
@@ -2355,9 +2377,16 @@
             }
             renderScheduleHighlight();
             renderWorkerSettings();
+            updateFutureClearButtonVisibility();
             renderCalendar();
             renderDaySummary();
             document.getElementById("dayMemo").value = getDayData(scheduleState.selectedDate).memo;
+        }
+
+        function updateFutureClearButtonVisibility() {
+            const btn = document.getElementById("btnClearFutureSchedule");
+            if (!btn) return;
+            btn.style.display = isFutureScheduleCleared ? "none" : "block";
         }
 
         function renderWorkerSettings() {
