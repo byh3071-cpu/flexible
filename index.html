@@ -1323,15 +1323,6 @@
                     <input type="date" id="rotationStartDate" class="date-field">
                 </div>
                 <div id="scheduleHighlight" class="schedule-highlight"></div>
-                <div class="detail-block" style="margin-top:12px;">
-                    <h4>근무자 관리 패널</h4>
-                    <p class="section-desc">활성/비활성과 기본 오픈/마감 참여자를 설정할 수 있습니다.</p>
-                    <div id="workerSettings" class="worker-settings-list"></div>
-                    <div class="worker-actions">
-                        <button type="button" id="btnApplyWorkerDefaults" class="btn-edit">기본 오픈/마감 오늘에 적용</button>
-                        <button type="button" id="btnResetWorkerSettings" class="btn-edit">설정 초기화</button>
-                    </div>
-                </div>
             </div>
 
             <div class="card">
@@ -1353,6 +1344,16 @@
                 </div>
 
                 <div id="calendarGrid" class="calendar-grid calendar-grid--workdays"></div>
+                <button type="button" id="btnToggleWorkerPanel" class="btn-edit" style="width:100%; margin-top:12px;">근무자 관리 패널 열기</button>
+                <div id="workerPanelWrap" class="detail-block" style="margin-top:12px; display:none;">
+                    <h4>근무자 관리 패널</h4>
+                    <p class="section-desc">활성/비활성과 기본 오픈/마감 참여자를 설정할 수 있습니다.</p>
+                    <div id="workerSettings" class="worker-settings-list"></div>
+                    <div class="worker-actions">
+                        <button type="button" id="btnApplyWorkerDefaults" class="btn-edit">기본 오픈/마감 오늘에 적용</button>
+                        <button type="button" id="btnResetWorkerSettings" class="btn-edit">설정 초기화</button>
+                    </div>
+                </div>
             </div>
 
                 <div class="detail-grid">
@@ -1506,6 +1507,7 @@
     <script>
         // 데이터: localStorage 전용. 사용자/저장 데이터는 innerHTML 삽입 전 escapeHtml() 처리.
         const DEFAULT_ROSTER = ["백요한", "박우성", "조한미", "김선호", "민광덕"];
+        const FIXED_SCHEDULE_MEMBERS = ["김선호", "민광덕", "박우성", "조한미"];
         const ROTATION_GROUP_A = ["백요한", "조한미"];
         const ROTATION_GROUP_B = ["김선호", "민광덕"];
         const AUTO_ROTATION_END_DATE = "2026-04-30";
@@ -1674,7 +1676,7 @@
         }
 
         function normalizeWorkerSettings(source) {
-            const names = uniqueNames((Array.isArray(roster) ? roster : []).map(p => p.name));
+            const names = FIXED_SCHEDULE_MEMBERS.slice();
             const map = {};
             names.forEach(name => {
                 const src = source && source[name] ? source[name] : {};
@@ -1954,6 +1956,9 @@
                 }
                 saveSchedule();
                 renderScheduleTab();
+                document.getElementById("dayEditorTitle").textContent = `${formatDateKorean(scheduleState.selectedDate)} 상세 편집`;
+                renderDayDetail();
+                document.getElementById("dayEditorModal").style.display = "flex";
 
                 const subs = getEffectiveSubstitutesForDate(scheduleState.selectedDate);
                 if (subs.length > 0) {
@@ -1973,6 +1978,13 @@
             });
             document.getElementById("substitutePopupModal").addEventListener("click", e => {
                 if (e.target.id === "substitutePopupModal") e.currentTarget.style.display = "none";
+            });
+            document.getElementById("btnToggleWorkerPanel").addEventListener("click", () => {
+                const panel = document.getElementById("workerPanelWrap");
+                const btn = document.getElementById("btnToggleWorkerPanel");
+                const nextOpen = panel.style.display === "none";
+                panel.style.display = nextOpen ? "block" : "none";
+                btn.textContent = nextOpen ? "근무자 관리 패널 닫기" : "근무자 관리 패널 열기";
             });
             document.getElementById("btnOpenDayEditor").addEventListener("click", () => {
                 document.getElementById("dayEditorTitle").textContent = `${formatDateKorean(scheduleState.selectedDate)} 상세 편집`;
@@ -2350,7 +2362,7 @@
 
         function renderWorkerSettings() {
             const wrap = document.getElementById("workerSettings");
-            const names = getMemberNames();
+            const names = FIXED_SCHEDULE_MEMBERS.slice();
             workerSettings = normalizeWorkerSettings(workerSettings);
             if (names.length === 0) {
                 wrap.innerHTML = `<div class="muted-note">등록된 근무자가 없습니다.</div>`;
@@ -2786,7 +2798,7 @@
         }
 
         function getScheduleMembers() {
-            const rosterNames = getMemberNames().filter(name => {
+            const rosterNames = FIXED_SCHEDULE_MEMBERS.filter(name => {
                 const conf = (workerSettings || {})[name];
                 return !conf || conf.active !== false;
             });
