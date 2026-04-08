@@ -32,13 +32,14 @@ flexible/
 
 ## 데이터·보안
 
-- **저장 위치**: 브라우저 localStorage (키: `seat_app_*`, `cafe_schedule_v1`, `cafe_seats_v1`, `app_theme_v1` 등)
+- **저장 위치**: 브라우저 localStorage (키: `seat_app_`*, `cafe_schedule_v1`, `cafe_seats_v1`, `app_theme_v1` 등)
 - **민감 정보**: 서버 전송 없음. API 키·비밀번호 등 미포함
 - **입력값**: 이름·메모 등 화면 출력 시 HTML 이스케이프 처리되어 XSS를 방지합니다
 
 ## 유지보수
 
 - 인원/로테이션 변경: `index.html` 내 상수 수정  
-  `DEFAULT_ROSTER`, `CAFE_SCHEDULE_MEMBERS`, `ROTATION_GROUP_A`, `ROTATION_GROUP_B`
+`DEFAULT_ROSTER`, `CAFE_SCHEDULE_MEMBERS`, `ROTATION_GROUP_A`, `ROTATION_GROUP_B`
 - 자리 개수 변경: `SEAT_IDS` 및 자리 배치용 HTML 블록 수정
 - 상세 점검·체크리스트: `MAINTENANCE.md` 참고
+

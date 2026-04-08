@@ -910,6 +910,44 @@
             display: grid;
             gap: 16px;
         }
+        .worker-settings-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .worker-row {
+            display: grid;
+            grid-template-columns: 1.2fr 0.6fr 0.6fr 0.6fr;
+            gap: 8px;
+            align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card-bg);
+        }
+        .worker-row.worker-row--head {
+            background: #f8fafc;
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text-sub);
+        }
+        .worker-name {
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .worker-cell-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .worker-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .worker-actions .btn-edit {
+            flex: 1;
+        }
 
         .detail-block {
             padding: 16px;
@@ -1097,6 +1135,14 @@
         .modal-box--wide {
             width: min(100%, 420px);
         }
+        .modal-box--tall {
+            max-height: 90vh;
+        }
+        .schedule-detail-scroll {
+            max-height: calc(90vh - 140px);
+            overflow-y: auto;
+            padding-right: 2px;
+        }
         .substitute-popup-body {
             max-height: 60vh;
             overflow-y: auto;
@@ -1277,6 +1323,15 @@
                     <input type="date" id="rotationStartDate" class="date-field">
                 </div>
                 <div id="scheduleHighlight" class="schedule-highlight"></div>
+                <div class="detail-block" style="margin-top:12px;">
+                    <h4>근무자 관리 패널</h4>
+                    <p class="section-desc">활성/비활성과 기본 오픈/마감 참여자를 설정할 수 있습니다.</p>
+                    <div id="workerSettings" class="worker-settings-list"></div>
+                    <div class="worker-actions">
+                        <button type="button" id="btnApplyWorkerDefaults" class="btn-edit">기본 오픈/마감 오늘에 적용</button>
+                        <button type="button" id="btnResetWorkerSettings" class="btn-edit">설정 초기화</button>
+                    </div>
+                </div>
             </div>
 
             <div class="card">
@@ -1300,7 +1355,7 @@
                 <div id="calendarGrid" class="calendar-grid calendar-grid--workdays"></div>
             </div>
 
-            <div class="detail-grid">
+                <div class="detail-grid">
                 <div class="card">
                     <div class="section-title">
                         <div>
@@ -1309,7 +1364,8 @@
                             <div id="selectedDateSubtext" class="detail-subtext"></div>
                         </div>
                     </div>
-                    <div id="scheduleDetail"></div>
+                    <div id="scheduleDetailSummary" class="muted-note">날짜를 선택하면 요약이 표시됩니다.</div>
+                    <button type="button" id="btnOpenDayEditor" class="btn btn-add" style="margin-top:12px;">선택한 날짜 상세 편집</button>
                 </div>
 
                 <div class="card">
@@ -1439,13 +1495,21 @@
             <button type="button" id="substitutePopupClose" class="btn btn-reset btn-full">닫기</button>
         </div>
     </div>
+    <div id="dayEditorModal" class="modal-overlay">
+        <div class="modal-box modal-box--wide modal-box--tall">
+            <h3 id="dayEditorTitle">날짜 상세 편집</h3>
+            <div id="scheduleDetail" class="schedule-detail-scroll"></div>
+            <button type="button" id="dayEditorClose" class="btn btn-reset btn-full">닫기</button>
+        </div>
+    </div>
 
     <script>
         // 데이터: localStorage 전용. 사용자/저장 데이터는 innerHTML 삽입 전 escapeHtml() 처리.
         const DEFAULT_ROSTER = ["백요한", "박우성", "조한미", "김선호", "민광덕"];
-        const CAFE_SCHEDULE_MEMBERS = ["김선호", "민광덕", "박우성", "백요한", "조한미"];
         const ROTATION_GROUP_A = ["백요한", "조한미"];
         const ROTATION_GROUP_B = ["김선호", "민광덕"];
+        const AUTO_ROTATION_END_DATE = "2026-04-30";
+        const AUTO_EXCLUDED_MEMBERS = [{ name: "백요한", from: "2026-04-20" }];
         const SEAT_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
         const STATUS_OPTIONS = ["지각", "결근", "병가", "월차", "반차", "기타"];
 
@@ -1463,6 +1527,7 @@
         let isSimpleMode = false;
         let activeTab = "seat";
         let scheduleState = null;
+        let workerSettings = null;
         let cafeSeatEditingIndex = 0;
 
         const Storage = {
@@ -1471,6 +1536,7 @@
             keyMode: "seat_app_simple_mode_v1",
             keyTab: "seat_app_active_tab_v1",
             keySchedule: "cafe_schedule_v1",
+            keyWorkerSettings: "cafe_worker_settings_v1",
             keyTheme: "app_theme_v1",
             keyCafeSeats: "cafe_seats_v1",
             get(key) {
@@ -1517,28 +1583,29 @@
             if (savedTab === "seat" || savedTab === "schedule") {
                 activeTab = savedTab;
             } else {
-                activeTab = "schedule";
+                activeTab = "seat";
             }
 
             const savedSchedule = Storage.get(Storage.keySchedule);
             scheduleState = normalizeSchedule(savedSchedule);
+            const savedWorkerSettings = Storage.get(Storage.keyWorkerSettings);
+            workerSettings = normalizeWorkerSettings(savedWorkerSettings);
 
             const savedTheme = Storage.get(Storage.keyTheme);
             document.documentElement.classList.toggle("dark", savedTheme === "dark");
 
             const savedCafeSeats = Storage.get(Storage.keyCafeSeats);
             if (savedCafeSeats && Array.isArray(savedCafeSeats) && savedCafeSeats.length === 2) {
-                cafeSeatAssignments = savedCafeSeats.map(name => (name && CAFE_SCHEDULE_MEMBERS.includes(name)) ? name : null);
+                const currentMembers = getScheduleMembers();
+                cafeSeatAssignments = savedCafeSeats.map(name => (name && currentMembers.includes(name)) ? name : null);
             }
         }
 
         function normalizeRoster(source) {
-            const defaultSet = new Set(DEFAULT_ROSTER);
             if (Array.isArray(source) && source.length > 0) {
                 if (typeof source[0] === "string") {
                     const names = [...new Set(source.map(item => item.trim()).filter(Boolean))];
-                    const kept = names.filter(name => defaultSet.has(name));
-                    const base = kept.length > 0 ? kept : DEFAULT_ROSTER.slice();
+                    const base = names.length > 0 ? names : DEFAULT_ROSTER.slice();
                     return base.sort((a, b) => a.localeCompare(b, "ko")).map(name => ({ name, on: true, note: "지각" }));
                 }
                 const list = source
@@ -1548,9 +1615,7 @@
                         note: STATUS_OPTIONS.includes(person.note) ? person.note : "지각"
                     }))
                     .filter(person => person.name);
-                const kept = list.filter(p => defaultSet.has(p.name));
-                const added = list.filter(p => !defaultSet.has(p.name));
-                const base = kept.length > 0 ? [...kept, ...added] : DEFAULT_ROSTER.map(name => ({ name, on: true, note: "지각" }));
+                const base = list.length > 0 ? list : DEFAULT_ROSTER.map(name => ({ name, on: true, note: "지각" }));
                 return base.sort((a, b) => a.name.localeCompare(b.name, "ko"));
             }
             return DEFAULT_ROSTER.slice().sort((a, b) => a.localeCompare(b, "ko")).map(name => ({
@@ -1577,6 +1642,7 @@
                 currentMonth,
                 selectedDate: defaultDate,
                 rotationStartMonday: defaultRotationStart,
+                members: getMemberNames(),
                 days: {}
             };
 
@@ -1589,6 +1655,9 @@
                 }
                 if (typeof source.rotationStartMonday === "string" && isDateKey(source.rotationStartMonday)) {
                     normalized.rotationStartMonday = source.rotationStartMonday;
+                }
+                if (Array.isArray(source.members)) {
+                    normalized.members = uniqueNames(source.members);
                 }
                 if (source.days && typeof source.days === "object") {
                     Object.entries(source.days).forEach(([dateKey, day]) => {
@@ -1604,6 +1673,20 @@
             return normalized;
         }
 
+        function normalizeWorkerSettings(source) {
+            const names = uniqueNames((Array.isArray(roster) ? roster : []).map(p => p.name));
+            const map = {};
+            names.forEach(name => {
+                const src = source && source[name] ? source[name] : {};
+                map[name] = {
+                    active: src.active !== false,
+                    defaultOpen: src.defaultOpen === true,
+                    defaultClose: src.defaultClose === true
+                };
+            });
+            return map;
+        }
+
         function getRotationForDate(dateKey) {
             const start = scheduleState.rotationStartMonday;
             const [y, m, d] = dateKey.split("-").map(Number);
@@ -1613,9 +1696,9 @@
             const daysSince = Math.floor((dateMs - startMs) / (24 * 60 * 60 * 1000));
             const block = Math.floor(daysSince / 14);
             if (block % 2 === 0) {
-                return { open: ROTATION_GROUP_A.slice(), close: ROTATION_GROUP_B.slice() };
+                return applyAutoExclusions({ open: ROTATION_GROUP_A.slice(), close: ROTATION_GROUP_B.slice() }, dateKey);
             }
-            return { open: ROTATION_GROUP_B.slice(), close: ROTATION_GROUP_A.slice() };
+            return applyAutoExclusions({ open: ROTATION_GROUP_B.slice(), close: ROTATION_GROUP_A.slice() }, dateKey);
         }
 
         function isWeekend(dateKey) {
@@ -1643,8 +1726,31 @@
             if (hasManual) {
                 return { ...day, open: day.open.slice(), close: day.close.slice() };
             }
+            if (dateKey > AUTO_ROTATION_END_DATE) {
+                return { ...day, open: [], close: [] };
+            }
             const rot = getRotationForDate(dateKey);
             return { ...day, open: rot.open, close: rot.close };
+        }
+
+        function applyAutoExclusions(rotation, dateKey) {
+            const excludeSet = new Set(
+                AUTO_EXCLUDED_MEMBERS
+                    .filter(rule => rule.name && rule.from && dateKey >= rule.from)
+                    .map(rule => rule.name)
+            );
+            Object.entries(workerSettings || {}).forEach(([name, conf]) => {
+                if (conf && conf.active === false) {
+                    excludeSet.add(name);
+                }
+            });
+            if (excludeSet.size === 0) {
+                return rotation;
+            }
+            return {
+                open: rotation.open.filter(name => !excludeSet.has(name)),
+                close: rotation.close.filter(name => !excludeSet.has(name))
+            };
         }
 
         function normalizeDayData(day) {
@@ -1709,6 +1815,8 @@
                 roster.push({ name, on: true, note: "지각" });
                 roster.sort((a, b) => a.name.localeCompare(b.name, "ko"));
                 Storage.set(Storage.keyRoster, roster);
+                workerSettings = normalizeWorkerSettings(workerSettings);
+                Storage.set(Storage.keyWorkerSettings, workerSettings);
                 document.getElementById("addMemberModal").style.display = "none";
                 renderRoster();
                 updateStatus();
@@ -1794,6 +1902,8 @@
                 });
 
                 Storage.set(Storage.keyRoster, roster);
+                workerSettings = normalizeWorkerSettings(workerSettings);
+                Storage.set(Storage.keyWorkerSettings, workerSettings);
                 modal.style.display = "none";
                 renderRoster();
                 updateStatus();
@@ -1863,6 +1973,52 @@
             });
             document.getElementById("substitutePopupModal").addEventListener("click", e => {
                 if (e.target.id === "substitutePopupModal") e.currentTarget.style.display = "none";
+            });
+            document.getElementById("btnOpenDayEditor").addEventListener("click", () => {
+                document.getElementById("dayEditorTitle").textContent = `${formatDateKorean(scheduleState.selectedDate)} 상세 편집`;
+                renderDayDetail();
+                document.getElementById("dayEditorModal").style.display = "flex";
+            });
+            document.getElementById("dayEditorClose").addEventListener("click", () => {
+                document.getElementById("dayEditorModal").style.display = "none";
+            });
+            document.getElementById("dayEditorModal").addEventListener("click", e => {
+                if (e.target.id === "dayEditorModal") {
+                    e.currentTarget.style.display = "none";
+                }
+            });
+            document.getElementById("workerSettings").addEventListener("change", e => {
+                const input = e.target;
+                const name = input.getAttribute("data-worker-name");
+                const field = input.getAttribute("data-worker-field");
+                if (!name || !field || !workerSettings[name]) {
+                    return;
+                }
+                workerSettings[name][field] = !!input.checked;
+                Storage.set(Storage.keyWorkerSettings, workerSettings);
+                renderScheduleTab();
+            });
+            document.getElementById("btnApplyWorkerDefaults").addEventListener("click", () => {
+                const open = [];
+                const close = [];
+                Object.entries(workerSettings || {}).forEach(([name, conf]) => {
+                    if (!conf.active) return;
+                    if (conf.defaultOpen) open.push(name);
+                    if (conf.defaultClose) close.push(name);
+                });
+                updateDayData(scheduleState.selectedDate, day => {
+                    day.open = uniqueNames(open);
+                    day.close = uniqueNames(close);
+                });
+                saveSchedule();
+                renderScheduleTab();
+                showToast("기본 오픈/마감 설정을 적용했습니다");
+            });
+            document.getElementById("btnResetWorkerSettings").addEventListener("click", () => {
+                workerSettings = normalizeWorkerSettings({});
+                Storage.set(Storage.keyWorkerSettings, workerSettings);
+                renderScheduleTab();
+                showToast("근무자 설정을 초기화했습니다");
             });
 
             document.getElementById("scheduleDetail").addEventListener("click", e => {
@@ -1934,7 +2090,8 @@
             cafeSeatEditingIndex = index;
             document.getElementById("cafeSeatModalTitle").textContent = `카페팀 자리 ${index + 1} (손님 응대)`;
             const picker = document.getElementById("cafeSeatPicker");
-            picker.innerHTML = CAFE_SCHEDULE_MEMBERS.map(name => `
+            const members = getScheduleMembers();
+            picker.innerHTML = members.map(name => `
                 <button type="button" class="member-pill ${cafeSeatAssignments[index] === name ? "active" : ""}" data-cafe-name="${escapeHtml(name)}">${escapeHtml(name)}</button>
             `).join("") + `<button type="button" class="member-pill" data-cafe-name="">비움</button>`;
             picker.querySelectorAll("[data-cafe-name]").forEach(btn => {
@@ -2185,9 +2342,67 @@
                 rotInput.value = scheduleState.rotationStartMonday || getThisWeekMondayKey();
             }
             renderScheduleHighlight();
+            renderWorkerSettings();
             renderCalendar();
-            renderDayDetail();
+            renderDaySummary();
             document.getElementById("dayMemo").value = getDayData(scheduleState.selectedDate).memo;
+        }
+
+        function renderWorkerSettings() {
+            const wrap = document.getElementById("workerSettings");
+            const names = getMemberNames();
+            workerSettings = normalizeWorkerSettings(workerSettings);
+            if (names.length === 0) {
+                wrap.innerHTML = `<div class="muted-note">등록된 근무자가 없습니다.</div>`;
+                return;
+            }
+
+            const rows = names.map(name => {
+                const conf = workerSettings[name] || { active: true, defaultOpen: false, defaultClose: false };
+                return `
+                    <div class="worker-row">
+                        <div class="worker-name">${escapeHtml(name)}</div>
+                        <div class="worker-cell-center">
+                            <input type="checkbox" data-worker-name="${escapeHtml(name)}" data-worker-field="active" ${conf.active ? "checked" : ""}>
+                        </div>
+                        <div class="worker-cell-center">
+                            <input type="checkbox" data-worker-name="${escapeHtml(name)}" data-worker-field="defaultOpen" ${conf.defaultOpen ? "checked" : ""} ${conf.active ? "" : "disabled"}>
+                        </div>
+                        <div class="worker-cell-center">
+                            <input type="checkbox" data-worker-name="${escapeHtml(name)}" data-worker-field="defaultClose" ${conf.defaultClose ? "checked" : ""} ${conf.active ? "" : "disabled"}>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            wrap.innerHTML = `
+                <div class="worker-row worker-row--head">
+                    <div>근무자</div>
+                    <div class="worker-cell-center">활성</div>
+                    <div class="worker-cell-center">기본 오픈</div>
+                    <div class="worker-cell-center">기본 마감</div>
+                </div>
+                ${rows}
+            `;
+        }
+
+        function renderDaySummary() {
+            const dateKey = scheduleState.selectedDate;
+            const dayData = getDisplayDayData(dateKey);
+            const substitutes = getEffectiveSubstitutesForDate(dateKey);
+            const statusText = dayData.statusEntries.length > 0
+                ? dayData.statusEntries.map(entry => `${entry.name} ${entry.type}`).join(", ")
+                : "없음";
+            document.getElementById("selectedDateTitle").textContent = formatDateKorean(dateKey);
+            document.getElementById("selectedDateSubtext").textContent = "상세 편집 버튼을 눌러 오픈/마감·근태·대타를 수정하세요.";
+            document.getElementById("scheduleDetailSummary").innerHTML = `
+                <div class="stack-list">
+                    <div class="list-item"><div><strong>오픈조</strong><span>${escapeHtml(formatPeople(dayData.open))}</span></div></div>
+                    <div class="list-item"><div><strong>마감조</strong><span>${escapeHtml(formatPeople(dayData.close))}</span></div></div>
+                    <div class="list-item"><div><strong>근태</strong><span>${escapeHtml(statusText)}</span></div></div>
+                    <div class="list-item"><div><strong>대타</strong><span>${substitutes.length}건</span></div></div>
+                </div>
+            `;
         }
 
         function renderScheduleHighlight() {
@@ -2290,7 +2505,7 @@
             const dateKey = scheduleState.selectedDate;
             const dayData = getDisplayDayData(dateKey);
             const effectiveSubstitutes = getEffectiveSubstitutesForDate(dateKey);
-            const names = CAFE_SCHEDULE_MEMBERS;
+            const names = getScheduleMembers();
 
             document.getElementById("selectedDateTitle").textContent = formatDateKorean(dateKey);
             document.getElementById("selectedDateSubtext").textContent = "오픈조와 마감조는 여러 명 선택 가능. 평일(월~금)만 근무일입니다.";
@@ -2549,6 +2764,7 @@
         }
 
         function saveSchedule() {
+            scheduleState.members = getMemberNames();
             Storage.set(Storage.keySchedule, scheduleState);
         }
 
@@ -2567,6 +2783,20 @@
             });
 
             return results;
+        }
+
+        function getScheduleMembers() {
+            const rosterNames = getMemberNames().filter(name => {
+                const conf = (workerSettings || {})[name];
+                return !conf || conf.active !== false;
+            });
+            if (rosterNames.length > 0) {
+                return rosterNames;
+            }
+            if (scheduleState && Array.isArray(scheduleState.members)) {
+                return uniqueNames(scheduleState.members);
+            }
+            return DEFAULT_ROSTER.slice().sort((a, b) => a.localeCompare(b, "ko"));
         }
 
         function getMemberNames() {
